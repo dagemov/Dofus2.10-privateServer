@@ -451,13 +451,17 @@ function Parse-SelectedServerData {
     }
 
     $offset += 1
-    $ticket = Read-UtfFromBytes -Bytes $Payload -Offset ([ref]$offset)
+    $ticketLength = Read-VarIntFromBytes -Bytes $Payload -Offset ([ref]$offset)
+    $ticketBytes = $Payload[$offset..($offset + $ticketLength - 1)]
+    $offset += $ticketLength
+    $ticket = [System.Text.Encoding]::ASCII.GetString($ticketBytes)
 
     [pscustomobject]@{
         ServerId = $serverId
         Address = $address
         Port = $ports[0]
         Ticket = $ticket
+        TicketBytes = $ticketBytes
     }
 }
 

@@ -400,7 +400,8 @@ public static class LegacyDofus210Messages
         writer.WriteUnsignedShort(1);
         writer.WriteVarShort(server.Port);
         writer.WriteBoolean(server.CanCreateNewCharacter);
-        writer.WriteUtf(ticketSession.Ticket);
+        writer.WriteVarInt(ticketSession.TicketPayload.Length);
+        writer.WriteBytes(ticketSession.TicketPayload);
 
         return DofusPacketCodec.Encode(DofusMessageIds.SelectedServerData, writer.ToArray());
     }
