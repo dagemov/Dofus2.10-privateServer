@@ -449,6 +449,16 @@ public sealed class AuthServerHostedService : BackgroundService
             LegacyDofus210Messages.CreateServersListPacket(availableServers),
             cancellationToken);
 
+        foreach (var availableServer in availableServers)
+        {
+            await SendPayloadAsync(
+                stream,
+                connectionId,
+                remoteEndPoint,
+                LegacyDofus210Messages.CreateServerStatusUpdatePacket(availableServer),
+                cancellationToken);
+        }
+
         _logger.LogInformation(
             "Identification accepted. ConnectionId={ConnectionId} Username={Username} AccountId={AccountId} PublishedServerIds={PublishedServerIds}",
             connectionId,

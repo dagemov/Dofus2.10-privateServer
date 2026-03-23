@@ -359,6 +359,11 @@ try {
             continue
         }
 
+        if ($packet.MessageId -eq 50) {
+            "AUTH status update: {0}" -f $packet.Hex
+            continue
+        }
+
         if ($packet.MessageId -eq 42 -and $packet.PayloadLength -gt 0) {
             $selectedServerData = Parse-SelectedServerData -Payload $packet.Payload
             "AUTH selected server data: serverId={0} address={1} port={2} ticket={3}" -f `

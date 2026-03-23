@@ -12,6 +12,7 @@ public static class DofusMessageIds
     public const ushort ServerSelection = 40;
     public const ushort SelectedServerRefused = 41;
     public const ushort SelectedServerData = 42;
+    public const ushort ServerStatusUpdate = 50;
     public const ushort HelloGame = 101;
     public const ushort AuthenticationTicket = 110;
     public const ushort AuthenticationTicketAccepted = 111;

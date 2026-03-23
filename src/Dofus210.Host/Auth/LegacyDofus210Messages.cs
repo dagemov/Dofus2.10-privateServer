@@ -403,6 +403,18 @@ public static class LegacyDofus210Messages
         return DofusPacketCodec.Encode(DofusMessageIds.SelectedServerData, writer.ToArray());
     }
 
+    public static byte[] CreateServerStatusUpdatePacket(GameServerSummary server)
+    {
+        using var writer = new DofusDataWriter();
+
+        writer.WriteVarShort(server.Id);
+        writer.WriteByte(server.Status);
+        writer.WriteByte(server.Completion);
+        writer.WriteBoolean(true);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.ServerStatusUpdate, writer.ToArray());
+    }
+
     public static byte[] CreateSelectedServerRefusedPacket(short serverId, byte error, byte status)
     {
         using var writer = new DofusDataWriter();
