@@ -26,6 +26,10 @@ public sealed record LegacyCredentialBlob(
     string Username,
     string Password);
 
+public sealed record LegacyGameMapMovementRequest(
+    IReadOnlyList<ushort> KeyMovements,
+    long MapId);
+
 public sealed record AuthTicketSession(
     string Ticket,
     byte[] TicketPayload,
@@ -270,6 +274,64 @@ public static class LegacyDofus210Messages
             mapId = 0;
             return false;
         }
+    }
+
+    public static bool TryReadGameContextReady(
+        ReadOnlySpan<byte> payload,
+        out long mapId)
+    {
+        return TryReadMapInformationsRequest(payload, out mapId);
+    }
+
+    public static bool TryReadGameMapMovementRequest(
+        ReadOnlySpan<byte> payload,
+        out LegacyGameMapMovementRequest? request)
+    {
+        request = null;
+
+        try
+        {
+            var reader = new DofusDataReader(payload);
+            var keyMovementsCount = reader.ReadUnsignedShort();
+
+            if (keyMovementsCount is 0 or > 64)
+            {
+                throw new InvalidOperationException("Unexpected key movement count.");
+            }
+
+            var keyMovements = new ushort[keyMovementsCount];
+
+            for (var index = 0; index < keyMovements.Length; index++)
+            {
+                keyMovements[index] = reader.ReadUnsignedShort();
+            }
+
+            var mapId = (long)reader.ReadDouble();
+
+            if (reader.Remaining != 0 || mapId < 0)
+            {
+                throw new InvalidOperationException("Unexpected payload for GameMapMovementRequest.");
+            }
+
+            request = new LegacyGameMapMovementRequest(keyMovements, mapId);
+            return true;
+        }
+        catch
+        {
+            request = null;
+            return false;
+        }
+    }
+
+    public static short DecodeCellId(ushort keyMovement)
+    {
+        return (short)(keyMovement & 0x0FFF);
+    }
+
+    public static byte DecodeDirection(ushort keyMovement, byte fallbackDirection)
+    {
+        var direction = (byte)((keyMovement >> 12) & 0x07);
+        return direction is > 0 and <= 7 ? direction : fallbackDirection;
     }
 
     public static byte[] CreateCredentialsAcknowledgementPacket()

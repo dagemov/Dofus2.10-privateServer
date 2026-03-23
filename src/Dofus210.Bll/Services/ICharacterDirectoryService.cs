@@ -25,4 +25,13 @@ public interface ICharacterDirectoryService
         short gameServerId,
         long characterId,
         CancellationToken cancellationToken = default);
+
+    Task<CharacterSelectionContext?> UpdatePositionAsync(
+        int accountId,
+        short gameServerId,
+        long characterId,
+        int mapId,
+        short cellId,
+        byte direction,
+        CancellationToken cancellationToken = default);
 }

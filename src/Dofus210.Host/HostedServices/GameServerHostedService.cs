@@ -14,6 +14,7 @@ namespace Dofus210.Host.HostedServices;
 
 public sealed class GameServerHostedService : BackgroundService
 {
+    private const short MaxMapCellId = 559;
     private const ushort CharactersListRequestModernMessageId = 2566;
     private const ushort CharacterCreationRequestModernMessageId = 1738;
     private const ushort CharacterSelectionModernMessageId = 6200;
@@ -275,6 +276,40 @@ public sealed class GameServerHostedService : BackgroundService
                             if (await TryHandleMapInformationsRequestAsync(
                                     packet,
                                     state,
+                                    stream,
+                                    connectionId,
+                                    remoteEndPoint,
+                                    stoppingToken))
+                            {
+                                continue;
+                            }
+
+                            if (await TryHandleGameContextReadyAsync(
+                                    packet,
+                                    state,
+                                    stream,
+                                    connectionId,
+                                    remoteEndPoint,
+                                    stoppingToken))
+                            {
+                                continue;
+                            }
+
+                            if (await TryHandleCharacterLoadingCompleteAsync(
+                                    packet,
+                                    state,
+                                    stream,
+                                    connectionId,
+                                    remoteEndPoint,
+                                    stoppingToken))
+                            {
+                                continue;
+                            }
+
+                            if (await TryHandleMapMovementRequestAsync(
+                                    packet,
+                                    state,
+                                    characterDirectoryService,
                                     stream,
                                     connectionId,
                                     remoteEndPoint,
@@ -546,6 +581,152 @@ public sealed class GameServerHostedService : BackgroundService
         return true;
     }
 
+    private async Task<bool> TryHandleGameContextReadyAsync(
+        DofusPacket packet,
+        GameConnectionState state,
+        NetworkStream stream,
+        string connectionId,
+        string remoteEndPoint,
+        CancellationToken cancellationToken)
+    {
+        if (state.SelectedCharacter is null ||
+            !TryResolveGameContextReady(packet, state.SelectedCharacter.MapId, out var mapId))
+        {
+            return false;
+        }
+
+        state.IsWorldContextReady = true;
+
+        _logger.LogInformation(
+            "GameContextReady received. ConnectionId={ConnectionId} CharacterId={CharacterId} MapId={MapId}",
+            connectionId,
+            state.SelectedCharacter.Character.Id,
+            mapId);
+
+        await SendPayloadAsync(
+            stream,
+            connectionId,
+            remoteEndPoint,
+            LegacyDofus210Messages.CreateBasicNoOperationPacket(),
+            cancellationToken);
+
+        return true;
+    }
+
+    private async Task<bool> TryHandleCharacterLoadingCompleteAsync(
+        DofusPacket packet,
+        GameConnectionState state,
+        NetworkStream stream,
+        string connectionId,
+        string remoteEndPoint,
+        CancellationToken cancellationToken)
+    {
+        if (state.SelectedCharacter is null ||
+            !IsCharacterLoadingCompleteMessage(packet.MessageId, packet.Payload.Length))
+        {
+            return false;
+        }
+
+        state.IsCharacterLoadingCompleted = true;
+
+        _logger.LogInformation(
+            "CharacterLoadingComplete received. ConnectionId={ConnectionId} CharacterId={CharacterId}",
+            connectionId,
+            state.SelectedCharacter.Character.Id);
+
+        await SendPayloadAsync(
+            stream,
+            connectionId,
+            remoteEndPoint,
+            LegacyDofus210Messages.CreateBasicNoOperationPacket(),
+            cancellationToken);
+
+        return true;
+    }
+
+    private async Task<bool> TryHandleMapMovementRequestAsync(
+        DofusPacket packet,
+        GameConnectionState state,
+        ICharacterDirectoryService characterDirectoryService,
+        NetworkStream stream,
+        string connectionId,
+        string remoteEndPoint,
+        CancellationToken cancellationToken)
+    {
+        if (state.Account is null ||
+            state.SelectedCharacter is null ||
+            !TryResolveGameMapMovementRequest(packet, state.SelectedCharacter.MapId, out var request) ||
+            request is null)
+        {
+            return false;
+        }
+
+        var lastKeyMovement = request.KeyMovements[^1];
+        var destinationCellId = LegacyDofus210Messages.DecodeCellId(lastKeyMovement);
+        var direction = LegacyDofus210Messages.DecodeDirection(lastKeyMovement, state.SelectedCharacter.Direction);
+
+        if (destinationCellId is < 0 or > MaxMapCellId)
+        {
+            _logger.LogWarning(
+                "GameMapMovementRequest rejected because the destination cell is invalid. ConnectionId={ConnectionId} MessageId={MessageId} CharacterId={CharacterId} DestinationCellId={DestinationCellId}",
+                connectionId,
+                packet.MessageId,
+                state.SelectedCharacter.Character.Id,
+                destinationCellId);
+            return true;
+        }
+
+        var updatedContext = await characterDirectoryService.UpdatePositionAsync(
+            state.Account.Id,
+            _serverOptions.GameServerId,
+            state.SelectedCharacter.Character.Id,
+            state.SelectedCharacter.MapId,
+            destinationCellId,
+            direction,
+            cancellationToken);
+
+        if (updatedContext is null)
+        {
+            _logger.LogWarning(
+                "GameMapMovementRequest could not persist the updated position. ConnectionId={ConnectionId} CharacterId={CharacterId}",
+                connectionId,
+                state.SelectedCharacter.Character.Id);
+            return true;
+        }
+
+        state.SelectedCharacter = updatedContext;
+
+        _logger.LogInformation(
+            "GameMapMovementRequest handled. ConnectionId={ConnectionId} MessageId={MessageId} CharacterId={CharacterId} DestinationCellId={DestinationCellId} Direction={Direction} PathLength={PathLength}",
+            connectionId,
+            packet.MessageId,
+            updatedContext.Character.Id,
+            destinationCellId,
+            direction,
+            request.KeyMovements.Count);
+
+        var refreshPackets = new[]
+        {
+            LegacyDofus210Messages.CreateMapComplementaryInformationsDataPacket(
+                updatedContext,
+                state.Account.Id),
+            LegacyDofus210Messages.CreateMapFightCountPacket(),
+            LegacyDofus210Messages.CreateBasicNoOperationPacket()
+        };
+
+        foreach (var payload in refreshPackets)
+        {
+            await SendPayloadAsync(
+                stream,
+                connectionId,
+                remoteEndPoint,
+                payload,
+                cancellationToken);
+        }
+
+        return true;
+    }
+
     private static bool TryResolveCharacterCreationRequest(
         DofusPacket packet,
         out CharacterCreationRequest? request)
@@ -588,6 +769,50 @@ public sealed class GameServerHostedService : BackgroundService
                messageId == CharactersListRequestModernMessageId;
     }
 
+    private static bool TryResolveGameContextReady(
+        DofusPacket packet,
+        int selectedMapId,
+        out long mapId)
+    {
+        mapId = 0;
+
+        if (!LegacyDofus210Messages.TryReadGameContextReady(packet.Payload, out mapId))
+        {
+            return false;
+        }
+
+        return packet.MessageId == DofusMessageIds.GameContextReadyModern ||
+               packet.MessageId == DofusMessageIds.GameContextReadyLegacyCandidate ||
+               (packet.Payload.Length == sizeof(long) && mapId == selectedMapId);
+    }
+
+    private static bool TryResolveGameMapMovementRequest(
+        DofusPacket packet,
+        int selectedMapId,
+        out LegacyGameMapMovementRequest? request)
+    {
+        request = null;
+
+        if (!LegacyDofus210Messages.TryReadGameMapMovementRequest(packet.Payload, out request) ||
+            request is null ||
+            request.MapId != selectedMapId)
+        {
+            return false;
+        }
+
+        return packet.MessageId == DofusMessageIds.GameMapMovementRequestModern ||
+               packet.MessageId == DofusMessageIds.GameMapMovementRequestLegacyCandidate ||
+               packet.MessageId == DofusMessageIds.GameCautiousMapMovementRequestModern ||
+               LooksLikeMapMovementRequest(request);
+    }
+
+    private static bool IsCharacterLoadingCompleteMessage(ushort messageId, int payloadLength)
+    {
+        return payloadLength == 0 &&
+               (messageId == DofusMessageIds.CharacterLoadingCompleteModern ||
+                messageId == DofusMessageIds.CharacterLoadingCompleteLegacyCandidate);
+    }
+
     private static bool LooksLikeCharacterCreationRequest(CharacterCreationRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name) ||
@@ -603,6 +828,20 @@ public sealed class GameServerHostedService : BackgroundService
         }
 
         return request.Name.All(character => char.IsLetter(character) || character == '-');
+    }
+
+    private static bool LooksLikeMapMovementRequest(LegacyGameMapMovementRequest request)
+    {
+        if (request.KeyMovements.Count is 0 or > 64)
+        {
+            return false;
+        }
+
+        return request.KeyMovements.All(keyMovement =>
+        {
+            var cellId = LegacyDofus210Messages.DecodeCellId(keyMovement);
+            return cellId is >= 0 and <= MaxMapCellId;
+        });
     }
 
     private string ResolveTranscriptPath()
@@ -626,6 +865,10 @@ public sealed class GameServerHostedService : BackgroundService
         public long? SelectedCharacterId { get; set; }
 
         public CharacterSelectionContext? SelectedCharacter { get; set; }
+
+        public bool IsWorldContextReady { get; set; }
+
+        public bool IsCharacterLoadingCompleted { get; set; }
 
         public HashSet<long> KnownCharacterIds { get; } = [];
 

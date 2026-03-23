@@ -267,6 +267,51 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
             AppDataContextHardcode.DefaultSpawnSubAreaId);
     }
 
+    public async Task<CharacterSelectionContext?> UpdatePositionAsync(
+        int accountId,
+        short gameServerId,
+        long characterId,
+        int mapId,
+        short cellId,
+        byte direction,
+        CancellationToken cancellationToken = default)
+    {
+        var character = await _unitOfWork
+            .Repository<Character>()
+            .Query()
+            .Include(current => current.Position)
+            .FirstOrDefaultAsync(
+                current =>
+                    current.Id == characterId &&
+                    current.AccountId == accountId &&
+                    current.GameServerId == gameServerId,
+                cancellationToken);
+
+        if (character is null)
+        {
+            return null;
+        }
+
+        character.Position ??= new CharacterPosition
+        {
+            CharacterId = character.Id
+        };
+
+        character.Position.MapId = mapId > 0 ? mapId : AppDataContextHardcode.DefaultSpawnMapId;
+        character.Position.CellId = cellId >= 0 ? cellId : AppDataContextHardcode.DefaultSpawnCellId;
+        character.Position.Direction = direction is > 0 and <= 7
+            ? direction
+            : AppDataContextHardcode.DefaultSpawnDirection;
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return await GetSelectionContextAsync(
+            accountId,
+            gameServerId,
+            characterId,
+            cancellationToken);
+    }
+
     private static bool IsValidCharacterName(string value)
     {
         if (string.IsNullOrWhiteSpace(value) || value.Length is < 3 or > 20)

@@ -32,6 +32,13 @@ public static class DofusMessageIds
     public const ushort MapInformationsRequest = 225;
     public const ushort MapComplementaryInformationsData = 226;
     public const ushort CharacterStatsList = 500;
+    public const ushort GameContextReadyModern = 5960;
+    public const ushort GameContextReadyLegacyCandidate = 6307;
+    public const ushort GameMapMovementRequestModern = 3376;
+    public const ushort GameMapMovementRequestLegacyCandidate = 4617;
+    public const ushort GameCautiousMapMovementRequestModern = 5883;
+    public const ushort CharacterLoadingCompleteModern = 7087;
+    public const ushort CharacterLoadingCompleteLegacyCandidate = 1599;
     public const ushort ClientKey = 5607;
     public const ushort CredentialsAcknowledgement = 6314;
 }
