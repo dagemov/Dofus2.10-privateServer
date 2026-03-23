@@ -452,6 +452,23 @@ function New-RandomCharacterName {
     return 'Codex' + (-join $letters)
 }
 
+function Parse-MapComplementaryInformationsData {
+    param([byte[]]$Payload)
+
+    $offset = 0
+    $subAreaId = Read-VarIntFromBytes -Bytes $Payload -Offset ([ref]$offset)
+    $mapId = [long](Read-DoubleFromBytes -Bytes $Payload -Offset ([ref]$offset))
+    $housesCount = Read-UnsignedShortFromBytes -Bytes $Payload -Offset ([ref]$offset)
+    $actorsCount = Read-UnsignedShortFromBytes -Bytes $Payload -Offset ([ref]$offset)
+
+    [pscustomobject]@{
+        SubAreaId = $subAreaId
+        MapId = $mapId
+        HousesCount = $housesCount
+        ActorsCount = $actorsCount
+    }
+}
+
 $summary = New-Object System.Collections.Generic.List[string]
 $characterName = $null
 
@@ -555,10 +572,18 @@ try {
             $mapPackets += (Read-Packet -Stream $gameStream)
         }
 
+        $mapComplementaryPacket = $mapPackets | Where-Object { $_.MessageId -eq 226 } | Select-Object -First 1
+        if ($null -eq $mapComplementaryPacket) {
+            throw 'MapComplementaryInformationsData packet was not received.'
+        }
+
+        $mapComplementary = Parse-MapComplementaryInformationsData -Payload $mapComplementaryPacket.Payload
+
         $summary.Add("SelectedCharacterId=$($selectedCharacter.CharacterId) SelectedCharacterName=$($selectedCharacter.Name)")
         $summary.Add("SelectionBootstrapIds=$((($bootstrapPackets | ForEach-Object { $_.MessageId }) -join ','))")
         $summary.Add("SelectionMapId=$mapId")
         $summary.Add("MapBootstrapIds=$((($mapPackets | ForEach-Object { $_.MessageId }) -join ','))")
+        $summary.Add("MapActorsCount=$($mapComplementary.ActorsCount) MapSubAreaId=$($mapComplementary.SubAreaId)")
     }
     finally {
         if ($gameStream) {

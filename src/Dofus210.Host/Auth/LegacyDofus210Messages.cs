@@ -36,6 +36,9 @@ public sealed record AuthTicketSession(
 public static class LegacyDofus210Messages
 {
     private const ushort CharacterBaseInformationsTypeId = 6238;
+    private const ushort GameRolePlayCharacterInformationsTypeId = 5268;
+    private const ushort HumanInformationsTypeId = 5831;
+    private const ushort EntityDispositionInformationsTypeId = 7114;
 
     public static bool TryReadIdentification(
         ReadOnlySpan<byte> payload,
@@ -440,14 +443,18 @@ public static class LegacyDofus210Messages
         return DofusPacketCodec.Encode(DofusMessageIds.BasicNoOperation, []);
     }
 
-    public static byte[] CreateMapComplementaryInformationsDataPacket(CharacterSelectionContext context)
+    public static byte[] CreateMapComplementaryInformationsDataPacket(
+        CharacterSelectionContext context,
+        int accountId)
     {
         using var writer = new DofusDataWriter();
 
         writer.WriteVarShort(context.SubAreaId);
         writer.WriteDouble(context.MapId);
         writer.WriteUnsignedShort(0);
-        writer.WriteUnsignedShort(0);
+        writer.WriteUnsignedShort(1);
+        writer.WriteUnsignedShort(GameRolePlayCharacterInformationsTypeId);
+        WriteGameRolePlayCharacterInformations(writer, context, accountId);
         writer.WriteUnsignedShort(0);
         writer.WriteUnsignedShort(0);
         writer.WriteUnsignedShort(0);
@@ -527,6 +534,45 @@ public static class LegacyDofus210Messages
         writer.WriteVarShort(0);
         writer.WriteVarShort(0);
         writer.WriteByte(0);
+    }
+
+    private static void WriteGameRolePlayCharacterInformations(
+        DofusDataWriter writer,
+        CharacterSelectionContext context,
+        int accountId)
+    {
+        writer.WriteDouble(context.Character.Id);
+        writer.WriteUnsignedShort(EntityDispositionInformationsTypeId);
+        writer.WriteShort(context.CellId);
+        writer.WriteByte(context.Direction);
+        WriteEntityLook(writer, context.Character);
+        writer.WriteUtf(context.Character.Name);
+        writer.WriteUnsignedShort(HumanInformationsTypeId);
+        WriteHumanInformations(writer, context.Character.Sex);
+        writer.WriteInt(accountId);
+        WriteActorAlignmentInformations(writer);
+    }
+
+    private static void WriteHumanInformations(DofusDataWriter writer, bool sex)
+    {
+        WriteActorRestrictionsInformations(writer);
+        writer.WriteBoolean(sex);
+        writer.WriteUnsignedShort(0);
+    }
+
+    private static void WriteActorRestrictionsInformations(DofusDataWriter writer)
+    {
+        writer.WriteByte(0);
+        writer.WriteByte(0);
+        writer.WriteByte(0);
+    }
+
+    private static void WriteActorAlignmentInformations(DofusDataWriter writer)
+    {
+        writer.WriteByte(0);
+        writer.WriteByte(0);
+        writer.WriteByte(0);
+        writer.WriteDouble(0);
     }
 
     private static byte SetFlag(byte box, int bit, bool value)

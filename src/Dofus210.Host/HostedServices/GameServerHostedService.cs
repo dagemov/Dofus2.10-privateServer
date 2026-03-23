@@ -526,7 +526,9 @@ public sealed class GameServerHostedService : BackgroundService
 
         var mapPackets = new[]
         {
-            LegacyDofus210Messages.CreateMapComplementaryInformationsDataPacket(state.SelectedCharacter),
+            LegacyDofus210Messages.CreateMapComplementaryInformationsDataPacket(
+                state.SelectedCharacter,
+                state.Account?.Id ?? 0),
             LegacyDofus210Messages.CreateMapFightCountPacket(),
             LegacyDofus210Messages.CreateBasicNoOperationPacket()
         };
