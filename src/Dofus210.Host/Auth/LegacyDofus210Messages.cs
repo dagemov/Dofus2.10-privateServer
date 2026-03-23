@@ -511,6 +511,70 @@ public static class LegacyDofus210Messages
         return DofusPacketCodec.Encode(DofusMessageIds.CurrentMap, writer.ToArray());
     }
 
+    public static byte[] CreateSetCharacterRestrictionsPacket(CharacterSelectionContext context)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteDouble(context.Character.Id);
+        WriteActorRestrictionsInformations(writer);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.SetCharacterRestrictions, writer.ToArray());
+    }
+
+    public static byte[] CreateInventoryContentPacket(CharacterSelectionContext context)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteUnsignedShort(0);
+        writer.WriteVarLong(context.Kamas);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.InventoryContent, writer.ToArray());
+    }
+
+    public static byte[] CreateInventoryWeightPacket(int inventoryWeight = 0, int shopWeight = 0, int weightMax = 1000)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteVarInt(inventoryWeight);
+        writer.WriteVarInt(shopWeight);
+        writer.WriteVarInt(weightMax);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.InventoryWeight, writer.ToArray());
+    }
+
+    public static byte[] CreateSpellListPacket(bool spellPrevisualization = false)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteBoolean(spellPrevisualization);
+        writer.WriteUnsignedShort(0);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.SpellList, writer.ToArray());
+    }
+
+    public static byte[] CreateShortcutBarContentPacket(byte barType)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteByte(barType);
+        writer.WriteUnsignedShort(0);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.ShortcutBarContent, writer.ToArray());
+    }
+
+    public static byte[] CreateEmoteListPacket()
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteUnsignedShort(0);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.EmoteList, writer.ToArray());
+    }
+
+    public static byte[] CreateLifePointsRegenEndPacket(CharacterSelectionContext context)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteVarInt(context.LifePoints);
+        writer.WriteVarInt(context.MaxLifePoints);
+        writer.WriteVarInt(0);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.LifePointsRegenEnd, writer.ToArray());
+    }
+
     public static byte[] CreateBasicTimePacket(DateTimeOffset timestamp)
     {
         using var writer = new DofusDataWriter();

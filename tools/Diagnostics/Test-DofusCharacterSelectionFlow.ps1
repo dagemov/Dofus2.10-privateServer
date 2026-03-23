@@ -570,7 +570,7 @@ try {
         $gameStream.Write($selectionPacket, 0, $selectionPacket.Length)
 
         $bootstrapPackets = @()
-        for ($index = 0; $index -lt 6; $index++) {
+        for ($index = 0; $index -lt 14; $index++) {
             $bootstrapPackets += (Read-Packet -Stream $gameStream)
         }
 
