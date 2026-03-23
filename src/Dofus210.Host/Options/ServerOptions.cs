@@ -34,15 +34,15 @@ public sealed class ServerOptions
 
     public short GameServerId { get; set; } = 1;
 
-    public byte ServerCommunityId { get; set; } = 4;
+    public byte ServerCommunityId { get; set; } = 0;
 
     public string GameServerAddress { get; set; } = "127.0.0.1";
 
-    public byte GameServerType { get; set; } = 1;
+    public byte GameServerType { get; set; } = 0;
 
-    public byte GameServerStatus { get; set; } = 1;
+    public byte GameServerStatus { get; set; } = 3;
 
-    public byte GameServerCompletion { get; set; } = 1;
+    public byte GameServerCompletion { get; set; } = 0;
 
     public byte GameServerCharacterSlots { get; set; } = 5;
 
