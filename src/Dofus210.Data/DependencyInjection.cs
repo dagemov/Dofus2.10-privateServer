@@ -26,10 +26,10 @@ public static class DependencyInjection
                 connectionString,
                 sqlServer => sqlServer.MigrationsAssembly(typeof(AppDataContext).Assembly.FullName)));
 
+        services.AddScoped<IAppDataContextInitializer, AppDataContextInitializer>();
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped<IUnitOfWork, UnitOfWork.UnitOfWork>();
 
         return services;
     }
 }
-

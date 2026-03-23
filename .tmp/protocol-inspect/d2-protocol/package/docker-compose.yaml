@@ -1,0 +1,8 @@
+version: "3.8"
+
+services:
+  d2protocol:
+    build: .
+    tty: true # Conserve l'etat "running"
+    volumes: 
+      - .:/D2.Protocol

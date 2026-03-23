@@ -1,0 +1,24 @@
+{
+  "name": "@rblanchet/d2-protocol",
+  "version": "2.63.7",
+  "description": "A Javascript library for Dofus 2.x Protocol",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "buildProtocol": "node bin/build-protocol.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RBlanchet/D2.Protocol.git"
+  },
+  "author": "RBlanchet",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/RBlanchet/D2.Protocol/issues"
+  },
+  "homepage": "https://github.com/RBlanchet/D2.Protocol#readme",
+  "dependencies": {
+    "axios": "^0.22.0",
+    "bytearray-node": "^3.3.5"
+  }
+}

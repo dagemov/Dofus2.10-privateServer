@@ -17,6 +17,15 @@ public static class AppDataContextHardcode
             Nickname = "Administrator",
             IsGameMaster = true,
             CreatedAtUtc = new DateTime(2026, 03, 22, 0, 0, 0, DateTimeKind.Utc)
+        },
+         new Account
+        {
+            Id = 2,
+            Username = "sebcos1",
+            PasswordHash = "polondrolo3",
+            Nickname = "Administrator",
+            IsGameMaster = true,
+            CreatedAtUtc = new DateTime(2026, 03, 22, 0, 0, 0, DateTimeKind.Utc)
         }
     ];
 }

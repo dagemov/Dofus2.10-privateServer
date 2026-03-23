@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+
 namespace Dofus210.Data.Repositories;
 
 public interface IRepository<TEntity>
@@ -11,10 +13,13 @@ public interface IRepository<TEntity>
 
     Task<int> CountAsync(CancellationToken cancellationToken = default);
 
+    Task<bool> AnyAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default);
+
+    Task<TEntity?> FirstOrDefaultAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default);
+
     Task AddAsync(TEntity entity, CancellationToken cancellationToken = default);
 
     void Update(TEntity entity);
 
     void Remove(TEntity entity);
 }
-

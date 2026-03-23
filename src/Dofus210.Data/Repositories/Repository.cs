@@ -1,5 +1,6 @@
 using Dofus210.Data.Context;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace Dofus210.Data.Repositories;
 
@@ -33,6 +34,16 @@ public sealed class Repository<TEntity> : IRepository<TEntity>
         return _dbSet.CountAsync(cancellationToken);
     }
 
+    public Task<bool> AnyAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default)
+    {
+        return _dbSet.AnyAsync(predicate, cancellationToken);
+    }
+
+    public Task<TEntity?> FirstOrDefaultAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default)
+    {
+        return _dbSet.FirstOrDefaultAsync(predicate, cancellationToken);
+    }
+
     public Task AddAsync(TEntity entity, CancellationToken cancellationToken = default)
     {
         return _dbSet.AddAsync(entity, cancellationToken).AsTask();
@@ -48,4 +59,3 @@ public sealed class Repository<TEntity> : IRepository<TEntity>
         _dbSet.Remove(entity);
     }
 }
-

@@ -1,0 +1,6 @@
+<config>
+  <entry key="connection.host">127.0.0.1</entry>
+  <entry key="connection.port" type="int">5555</entry>
+  <entry key="lang.current">es</entry>
+  <entry key="connection.host.signature">dummy-signature</entry>
+</config>
