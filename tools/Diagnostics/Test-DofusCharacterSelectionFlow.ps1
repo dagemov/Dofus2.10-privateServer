@@ -414,6 +414,21 @@ function New-CharacterSelectionPayload {
     return $payload.ToArray()
 }
 
+function New-ServerSelectionPayload {
+    param([int]$ServerId)
+
+    $payload = New-Object System.Collections.Generic.List[byte]
+    $currentValue = [uint32]$ServerId
+
+    while ($currentValue -ge 0x80) {
+        $payload.Add([byte](($currentValue -band 0x7F) -bor 0x80))
+        $currentValue = $currentValue -shr 7
+    }
+
+    $payload.Add([byte]$currentValue)
+    return $payload.ToArray()
+}
+
 function New-MapInformationsRequestPayload {
     param([double]$MapId)
 
@@ -495,7 +510,7 @@ try {
         $packet = Read-Packet -Stream $authStream
 
         if ($packet.MessageId -eq 30) {
-            $selectionPacket = Encode-Packet -MessageId 40 -Payload ([byte[]](1))
+            $selectionPacket = Encode-Packet -MessageId 40 -Payload (New-ServerSelectionPayload -ServerId 4001)
             $authStream.Write($selectionPacket, 0, $selectionPacket.Length)
             continue
         }

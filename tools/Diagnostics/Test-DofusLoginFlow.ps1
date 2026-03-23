@@ -262,8 +262,6 @@ function Parse-ServersListPayload {
         $flags = [int]$Payload[$offset]
         $offset += 1
         $serverId = Read-VarIntFromBytes -Bytes $Payload -Offset ([ref]$offset)
-        $type = [int]$Payload[$offset]
-        $offset += 1
         $status = [int]$Payload[$offset]
         $offset += 1
         $completion = [int]$Payload[$offset]
@@ -277,7 +275,6 @@ function Parse-ServersListPayload {
         $servers += [pscustomobject]@{
             Flags = $flags
             ServerId = $serverId
-            Type = $type
             Status = $status
             Completion = $completion
             CharactersCount = $charactersCount
