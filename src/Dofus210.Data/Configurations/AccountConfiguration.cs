@@ -1,4 +1,3 @@
-using Dofus210.Data.Context;
 using Dofus210.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -30,8 +29,5 @@ public sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
 
         builder.HasIndex(account => account.Username)
             .IsUnique();
-
-        builder.HasData(AppDataContextHardcode.Accounts);
     }
 }
-

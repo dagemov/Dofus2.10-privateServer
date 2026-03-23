@@ -12,10 +12,19 @@ public sealed class AppDataContext : DbContext
 
     public DbSet<Account> Accounts => Set<Account>();
 
+    public DbSet<Breed> Breeds => Set<Breed>();
+
+    public DbSet<GameServer> GameServers => Set<GameServer>();
+
+    public DbSet<Character> Characters => Set<Character>();
+
+    public DbSet<CharacterStats> CharacterStats => Set<CharacterStats>();
+
+    public DbSet<CharacterPosition> CharacterPositions => Set<CharacterPosition>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDataContext).Assembly);
         base.OnModelCreating(modelBuilder);
     }
 }
-

@@ -46,6 +46,24 @@ public sealed class DofusDataWriter : IDisposable
         WriteVarInt(value);
     }
 
+    public void WriteVarLong(long value)
+    {
+        if (value < 0)
+        {
+            throw new InvalidOperationException("Negative values are not supported by this Dofus VarLong writer.");
+        }
+
+        var currentValue = (ulong)value;
+
+        while (currentValue >= 0x80)
+        {
+            _stream.WriteByte((byte)((currentValue & 0x7F) | 0x80));
+            currentValue >>= 7;
+        }
+
+        _stream.WriteByte((byte)currentValue);
+    }
+
     public void WriteByte(byte value)
     {
         _stream.WriteByte(value);

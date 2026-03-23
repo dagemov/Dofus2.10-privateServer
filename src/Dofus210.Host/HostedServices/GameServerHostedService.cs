@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
+using Dofus210.Bll.Models;
 using Dofus210.Bll.Services;
 using Dofus210.Data.Context;
 using Dofus210.Host.Auth;
@@ -109,7 +110,10 @@ public sealed class GameServerHostedService : BackgroundService
     {
         var connectionId = $"game-{Interlocked.Increment(ref _connectionCounter):D4}";
         var remoteEndPoint = tcpClient.Client.RemoteEndPoint?.ToString() ?? "unknown";
+        var state = new GameConnectionState();
         var packetBuffer = new DofusPacketBuffer();
+        await using var scope = _serviceScopeFactory.CreateAsyncScope();
+        var characterDirectoryService = scope.ServiceProvider.GetRequiredService<ICharacterDirectoryService>();
 
         using (tcpClient)
         {
@@ -169,11 +173,11 @@ public sealed class GameServerHostedService : BackgroundService
                             if (packet.MessageId == DofusMessageIds.AuthenticationTicket)
                             {
                                 var authTicket = LegacyDofus210Messages.ReadAuthenticationTicket(packet.Payload);
-                                var ticketAccepted = _authTicketStore.TryConsume(authTicket.Ticket, out _);
+                                var ticketAccepted = _authTicketStore.TryConsume(authTicket.Ticket, out var ticketSession);
 
                                 if (!ticketAccepted)
                                 {
-                                    ticketAccepted = _authTicketStore.TryConsumeSingleOutstanding(out _);
+                                    ticketAccepted = _authTicketStore.TryConsumeSingleOutstanding(out ticketSession);
 
                                     if (ticketAccepted)
                                     {
@@ -191,6 +195,11 @@ public sealed class GameServerHostedService : BackgroundService
                                     authTicket.Ticket,
                                     ticketAccepted);
 
+                                if (ticketAccepted)
+                                {
+                                    state.Account = ticketSession.Account;
+                                }
+
                                 await SendPayloadAsync(
                                     stream,
                                     connectionId,
@@ -205,15 +214,30 @@ public sealed class GameServerHostedService : BackgroundService
 
                             if (packet.MessageId == DofusMessageIds.CharactersListRequest)
                             {
+                                if (state.Account is null)
+                                {
+                                    _logger.LogWarning(
+                                        "CharactersListRequest received before game authentication. ConnectionId={ConnectionId}",
+                                        connectionId);
+                                    continue;
+                                }
+
+                                var characters = await characterDirectoryService.ListForAccountAsync(
+                                    state.Account.Id,
+                                    _serverOptions.GameServerId,
+                                    stoppingToken);
+
                                 _logger.LogInformation(
-                                    "CharactersListRequest received. ConnectionId={ConnectionId}",
-                                    connectionId);
+                                    "CharactersListRequest received. ConnectionId={ConnectionId} AccountId={AccountId} CharacterCount={CharacterCount}",
+                                    connectionId,
+                                    state.Account.Id,
+                                    characters.Count);
 
                                 await SendPayloadAsync(
                                     stream,
                                     connectionId,
                                     remoteEndPoint,
-                                    LegacyDofus210Messages.CreateCharactersListPacket(),
+                                    LegacyDofus210Messages.CreateCharactersListPacket(characters),
                                     stoppingToken);
 
                                 continue;
@@ -295,6 +319,11 @@ public sealed class GameServerHostedService : BackgroundService
                 _hostEnvironment.ContentRootPath,
                 _serverOptions.GameTranscriptDirectory,
                 "game-transcript.log"));
+    }
+
+    private sealed class GameConnectionState
+    {
+        public AuthenticatedAccount? Account { get; set; }
     }
 
 }

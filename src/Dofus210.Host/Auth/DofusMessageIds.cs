@@ -18,6 +18,7 @@ public static class DofusMessageIds
     public const ushort AuthenticationTicketRefused = 112;
     public const ushort CharactersListRequest = 150;
     public const ushort CharactersList = 151;
+    public const ushort CharacterCreationResult = 1146;
     public const ushort BasicPing = 182;
     public const ushort BasicPong = 183;
     public const ushort ClientKey = 5607;

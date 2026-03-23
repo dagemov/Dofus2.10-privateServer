@@ -13,5 +13,6 @@ public sealed class Account
     public bool IsGameMaster { get; set; }
 
     public DateTime CreatedAtUtc { get; set; }
-}
 
+    public ICollection<Character> Characters { get; set; } = [];
+}

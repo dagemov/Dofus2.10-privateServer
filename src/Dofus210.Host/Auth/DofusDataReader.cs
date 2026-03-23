@@ -104,6 +104,30 @@ public sealed class DofusDataReader
         }
     }
 
+    public long ReadVarLong()
+    {
+        long result = 0;
+        var shift = 0;
+
+        while (true)
+        {
+            if (shift > 63)
+            {
+                throw new InvalidOperationException("VarLong is too large.");
+            }
+
+            var current = ReadByte();
+            result |= (long)(current & 0x7F) << shift;
+
+            if ((current & 0x80) == 0)
+            {
+                return result;
+            }
+
+            shift += 7;
+        }
+    }
+
     private void EnsureAvailable(int count)
     {
         if (Remaining < count)

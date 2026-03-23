@@ -35,6 +35,8 @@ public sealed record AuthTicketSession(
 
 public static class LegacyDofus210Messages
 {
+    private const ushort CharacterBaseInformationsTypeId = 6238;
+
     public static bool TryReadIdentification(
         ReadOnlySpan<byte> payload,
         out LegacyIdentificationMessage? message)
@@ -186,6 +188,37 @@ public static class LegacyDofus210Messages
         return (language, ticket);
     }
 
+    public static bool TryReadCharacterCreationRequest(
+        ReadOnlySpan<byte> payload,
+        out CharacterCreationRequest? request)
+    {
+        request = null;
+
+        try
+        {
+            var reader = new DofusDataReader(payload);
+            var name = reader.ReadUtf();
+            var breedId = reader.ReadByte();
+            var sex = reader.ReadBoolean();
+            var colors = new int[5];
+
+            for (var index = 0; index < colors.Length; index++)
+            {
+                colors[index] = reader.ReadInt();
+            }
+
+            var cosmeticId = (short)reader.ReadVarInt();
+
+            request = new CharacterCreationRequest(name, breedId, sex, colors, cosmeticId);
+            return true;
+        }
+        catch
+        {
+            request = null;
+            return false;
+        }
+    }
+
     public static byte[] CreateCredentialsAcknowledgementPacket()
     {
         return DofusPacketCodec.Encode(DofusMessageIds.CredentialsAcknowledgement, []);
@@ -273,14 +306,28 @@ public static class LegacyDofus210Messages
         return DofusPacketCodec.Encode(DofusMessageIds.AuthenticationTicketRefused, []);
     }
 
-    public static byte[] CreateCharactersListPacket()
+    public static byte[] CreateCharactersListPacket(IReadOnlyCollection<CharacterSummary> characters)
     {
         using var writer = new DofusDataWriter();
 
-        writer.WriteUnsignedShort(0);
+        writer.WriteUnsignedShort((ushort)characters.Count);
+
+        foreach (var character in characters)
+        {
+            writer.WriteUnsignedShort(CharacterBaseInformationsTypeId);
+            WriteCharacterBaseInformations(writer, character);
+        }
+
         writer.WriteBoolean(false);
 
         return DofusPacketCodec.Encode(DofusMessageIds.CharactersList, writer.ToArray());
+    }
+
+    public static byte[] CreateCharacterCreationResultPacket(byte resultCode)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteByte(resultCode);
+        return DofusPacketCodec.Encode(DofusMessageIds.CharacterCreationResult, writer.ToArray());
     }
 
     private static void WriteGameServerInformations(DofusDataWriter writer, ServerOptions options)
@@ -295,6 +342,42 @@ public static class LegacyDofus210Messages
         writer.WriteByte(options.GameServerCompletion);
         writer.WriteByte(0);
         writer.WriteDouble(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    }
+
+    private static void WriteCharacterBaseInformations(DofusDataWriter writer, CharacterSummary character)
+    {
+        writer.WriteVarLong(character.Id);
+        writer.WriteUtf(character.Name);
+        writer.WriteVarShort(character.Level);
+        WriteEntityLook(writer, character);
+        writer.WriteByte(character.BreedId);
+        writer.WriteBoolean(character.Sex);
+    }
+
+    private static void WriteEntityLook(DofusDataWriter writer, CharacterSummary character)
+    {
+        writer.WriteVarShort(character.BonesId);
+
+        if (character.SkinId > 0)
+        {
+            writer.WriteUnsignedShort(1);
+            writer.WriteVarShort(character.SkinId);
+        }
+        else
+        {
+            writer.WriteUnsignedShort(0);
+        }
+
+        writer.WriteUnsignedShort((ushort)character.IndexedColors.Count);
+
+        foreach (var indexedColor in character.IndexedColors)
+        {
+            writer.WriteInt(indexedColor);
+        }
+
+        writer.WriteUnsignedShort(1);
+        writer.WriteVarShort(100);
+        writer.WriteUnsignedShort(0);
     }
 
     private static byte SetFlag(byte box, int bit, bool value)
