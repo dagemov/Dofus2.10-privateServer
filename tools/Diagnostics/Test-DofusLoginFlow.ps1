@@ -236,9 +236,7 @@ function Parse-SelectedServerData {
 
     $canCreate = $Payload[$offset] -ne 0
     $offset += 1
-    $ticketLength = Read-VarIntFromBytes -Bytes $Payload -Offset ([ref]$offset)
-    $ticketBytes = $Payload[$offset..($offset + $ticketLength - 1)]
-    $ticket = [System.Text.Encoding]::ASCII.GetString($ticketBytes)
+    $ticket = Read-UtfFromBytes -Bytes $Payload -Offset ([ref]$offset)
 
     [pscustomobject]@{
         ServerId = $serverId
@@ -246,7 +244,7 @@ function Parse-SelectedServerData {
         Ports = $ports
         CanCreate = $canCreate
         Ticket = $ticket
-        TicketHex = Convert-ToHex -Bytes $ticketBytes
+        TicketHex = Convert-ToHex -Bytes ([System.Text.Encoding]::ASCII.GetBytes($ticket))
     }
 }
 
