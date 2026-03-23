@@ -18,7 +18,8 @@ public static class AppDataContextHardcode
 
     public const byte DefaultSpawnDirection = 2;
 
-    public const short DefaultSpawnSubAreaId = 0;
+    // Resolved from the local MapPositions.d2o entry for map 80217091.
+    public const short DefaultSpawnSubAreaId = 445;
 
     public static IReadOnlyCollection<Account> Accounts { get; } =
     [
