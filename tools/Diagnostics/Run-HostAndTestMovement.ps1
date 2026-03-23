@@ -13,7 +13,7 @@ if (Test-Path $errLogPath) {
 }
 
 $hostProcess = Start-Process dotnet `
-    -ArgumentList @('run', '--no-build', '--project', $project) `
+    -ArgumentList @('run', '--project', $project) `
     -PassThru `
     -WindowStyle Hidden `
     -RedirectStandardOutput $outLogPath `
