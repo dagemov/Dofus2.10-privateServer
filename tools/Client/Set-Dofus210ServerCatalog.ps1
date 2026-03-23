@@ -104,6 +104,23 @@ function Write-UtfText {
     }
 }
 
+function Resolve-MonoAccountOffset {
+    param(
+        [byte[]]$Bytes,
+        [pscustomobject]$Layout,
+        [int]$RestrictedToLanguagesCount
+    )
+
+    $cursor = $Layout.RestrictedCountOffset + 4
+
+    for ($index = 0; $index -lt $RestrictedToLanguagesCount; $index++) {
+        $restrictedLanguage = Read-UtfMetadata -Bytes $Bytes -Offset $cursor
+        $cursor = $restrictedLanguage.NextOffset
+    }
+
+    return $cursor
+}
+
 function Get-ServerLayout {
     param(
         [byte[]]$Bytes,
@@ -241,6 +258,7 @@ if (-not (Test-Path -LiteralPath $backupFile)) {
 
 $bytes = [System.IO.File]::ReadAllBytes($serversFile)
 $layout = Find-ServerLayout -Bytes $bytes -ExpectedServerId $ServerId
+$effectiveRestrictedToLanguagesCount = $layout.RestrictedToLanguagesCount
 
 if ($PSBoundParameters.ContainsKey('NameTranslationId') -and $null -ne $NameTranslationId) {
     Write-BigEndianInt32 -Bytes $bytes -Offset $layout.NameOffset -Value ([int]$NameTranslationId)
@@ -267,16 +285,34 @@ if ($PSBoundParameters.ContainsKey('CommunityId') -and $null -ne $CommunityId) {
 }
 
 if ($PSBoundParameters.ContainsKey('RestrictedToLanguagesCount') -and $null -ne $RestrictedToLanguagesCount) {
-    if ([int]$RestrictedToLanguagesCount -ne $layout.RestrictedToLanguagesCount) {
-        throw "Cambiar el conteo de idiomas restringidos reescribe el layout del D2O y no esta soportado por este script. Valor actual: $($layout.RestrictedToLanguagesCount)."
+    if ([int]$RestrictedToLanguagesCount -lt 0) {
+        throw "RestrictedToLanguagesCount no puede ser negativo."
+    }
+
+    if ([int]$RestrictedToLanguagesCount -gt $layout.RestrictedToLanguagesCount) {
+        throw "Aumentar el conteo de idiomas restringidos reescribe el layout del D2O y no esta soportado por este script. Valor actual: $($layout.RestrictedToLanguagesCount)."
     }
 
     Write-BigEndianInt32 -Bytes $bytes -Offset $layout.RestrictedCountOffset -Value ([int]$RestrictedToLanguagesCount)
+    $effectiveRestrictedToLanguagesCount = [int]$RestrictedToLanguagesCount
 }
 
+$monoAccountOffset = Resolve-MonoAccountOffset `
+    -Bytes $bytes `
+    -Layout $layout `
+    -RestrictedToLanguagesCount $effectiveRestrictedToLanguagesCount
+
+$monoAccountValue = $layout.MonoAccount
+
 if ($PSBoundParameters.ContainsKey('MonoAccount') -and $null -ne $MonoAccount) {
-    Write-BigEndianInt32 -Bytes $bytes -Offset $layout.MonoAccountOffset -Value ([int]$MonoAccount)
+    $monoAccountValue = [int]$MonoAccount
 }
+
+if ($monoAccountOffset + 3 -ge $bytes.Length) {
+    throw "MonoAccountOffset calculado fuera del rango del archivo."
+}
+
+Write-BigEndianInt32 -Bytes $bytes -Offset $monoAccountOffset -Value $monoAccountValue
 
 [System.IO.File]::WriteAllBytes($serversFile, $bytes)
 
