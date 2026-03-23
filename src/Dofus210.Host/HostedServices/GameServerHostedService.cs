@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using Dofus210.Bll.Models;
 using Dofus210.Bll.Services;
 using Dofus210.Data.Context;
@@ -18,6 +19,8 @@ public sealed class GameServerHostedService : BackgroundService
     private const ushort CharactersListRequestModernMessageId = 2566;
     private const ushort CharacterCreationRequestModernMessageId = 1738;
     private const ushort CharacterSelectionModernMessageId = 6200;
+    private static readonly byte[] FlashPolicyResponse = Encoding.ASCII.GetBytes(
+        "<?xml version=\"1.0\"?><cross-domain-policy><allow-access-from domain=\"*\" to-ports=\"*\" /></cross-domain-policy>\0");
 
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly IHostEnvironment _hostEnvironment;
@@ -137,6 +140,39 @@ public sealed class GameServerHostedService : BackgroundService
 
                 try
                 {
+                    using var initialProbeCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                    initialProbeCts.CancelAfter(TimeSpan.FromMilliseconds(250));
+
+                    try
+                    {
+                        var initialBytesRead = await stream.ReadAsync(
+                            buffer.AsMemory(0, _serverOptions.AuthReceiveBufferSize),
+                            initialProbeCts.Token);
+
+                        if (initialBytesRead > 0)
+                        {
+                            var initialChunk = buffer.AsSpan(0, initialBytesRead).ToArray();
+
+                            if (ContainsPolicyFileRequest(ToSanitizedAscii(initialChunk)))
+                            {
+                                await RecordPacketAsync(connectionId, remoteEndPoint, "IN", initialChunk);
+                                await stream.WriteAsync(FlashPolicyResponse, stoppingToken);
+                                await RecordPacketAsync(connectionId, remoteEndPoint, "OUT", FlashPolicyResponse);
+
+                                _logger.LogInformation(
+                                    "Game flash policy response sent. ConnectionId={ConnectionId}",
+                                    connectionId);
+
+                                return;
+                            }
+
+                            packetBuffer.Append(initialChunk);
+                        }
+                    }
+                    catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested && initialProbeCts.IsCancellationRequested)
+                    {
+                    }
+
                     await SendPayloadAsync(
                         stream,
                         connectionId,
@@ -862,6 +898,23 @@ public sealed class GameServerHostedService : BackgroundService
                 _hostEnvironment.ContentRootPath,
                 _serverOptions.GameTranscriptDirectory,
                 "game-transcript.log"));
+    }
+
+    private static bool ContainsPolicyFileRequest(string asciiPayload)
+    {
+        return asciiPayload.Contains("policy-file-request", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ToSanitizedAscii(byte[] payload)
+    {
+        return string.Create(payload.Length, payload, static (span, source) =>
+        {
+            for (var index = 0; index < source.Length; index++)
+            {
+                var currentByte = source[index];
+                span[index] = currentByte is >= 32 and <= 126 ? (char)currentByte : '.';
+            }
+        });
     }
 
     private sealed class GameConnectionState
