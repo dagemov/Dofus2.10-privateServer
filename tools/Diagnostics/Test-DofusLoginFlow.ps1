@@ -257,27 +257,45 @@ function Parse-ServersListPayload {
     $servers = @()
 
     for ($index = 0; $index -lt $serversCount; $index++) {
+        $flags = [int]$Payload[$offset]
+        $offset += 1
         $serverId = Read-VarIntFromBytes -Bytes $Payload -Offset ([ref]$offset)
+        $type = [int]$Payload[$offset]
+        $offset += 1
         $status = [int]$Payload[$offset]
         $offset += 1
         $completion = [int]$Payload[$offset]
         $offset += 1
-        $isSelectable = $Payload[$offset] -ne 0
-        $offset += 1
         $charactersCount = [int]$Payload[$offset]
         $offset += 1
+        $characterSlots = [int]$Payload[$offset]
+        $offset += 1
+        $date = [System.BitConverter]::ToDouble($Payload, $offset)
+        $offset += 8
+        $isSelectable = (($flags -band 0x02) -ne 0)
+        $isMonoAccount = (($flags -band 0x01) -ne 0)
 
         $servers += [pscustomobject]@{
             ServerId = $serverId
+            Type = $type
             Status = $status
             Completion = $completion
             IsSelectable = $isSelectable
+            IsMonoAccount = $isMonoAccount
             CharactersCount = $charactersCount
+            CharacterSlots = $characterSlots
+            Date = $date
         }
+    }
+
+    $canCreateNewCharacter = $false
+    if ($offset -lt $Payload.Length) {
+        $canCreateNewCharacter = $Payload[$offset] -ne 0
     }
 
     [pscustomobject]@{
         Servers = $servers
+        CanCreateNewCharacter = $canCreateNewCharacter
     }
 }
 
@@ -350,7 +368,7 @@ try {
                 $selectionTarget = $serversList.Servers | Select-Object -First 1
             }
 
-            "AUTH servers: {0}" -f (($serversList.Servers | ForEach-Object { "id=$($_.ServerId)/chars=$($_.CharactersCount)/status=$($_.Status)/selectable=$($_.IsSelectable)" }) -join ', ')
+            "AUTH servers: {0} canCreate={1}" -f (($serversList.Servers | ForEach-Object { "id=$($_.ServerId)/type=$($_.Type)/chars=$($_.CharactersCount)/$($_.CharacterSlots)/status=$($_.Status)/selectable=$($_.IsSelectable)/mono=$($_.IsMonoAccount)" }) -join ', '), $serversList.CanCreateNewCharacter
 
             $selectionPayload = New-ServerSelectionPayload -ServerId $selectionTarget.ServerId
             $selectionPacket = Encode-Packet -MessageId 40 -Payload $selectionPayload
@@ -360,7 +378,8 @@ try {
         }
 
         if ($packet.MessageId -eq 50) {
-            "AUTH status update: {0}" -f $packet.Hex
+            $statusUpdate = Parse-ServersListPayload -Payload (@(0,1) + $packet.Payload + @(0))
+            "AUTH status update: {0}" -f (($statusUpdate.Servers | ForEach-Object { "id=$($_.ServerId)/type=$($_.Type)/chars=$($_.CharactersCount)/$($_.CharacterSlots)/status=$($_.Status)/selectable=$($_.IsSelectable)/mono=$($_.IsMonoAccount)" }) -join ', ')
             continue
         }
 

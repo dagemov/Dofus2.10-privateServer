@@ -386,6 +386,8 @@ public static class LegacyDofus210Messages
             WriteGameServerInformations(writer, server);
         }
 
+        writer.WriteBoolean(servers.Any(server => server.CanCreateNewCharacter));
+
         return DofusPacketCodec.Encode(DofusMessageIds.ServersList, writer.ToArray());
     }
 
@@ -407,10 +409,7 @@ public static class LegacyDofus210Messages
     {
         using var writer = new DofusDataWriter();
 
-        writer.WriteVarShort(server.Id);
-        writer.WriteByte(server.Status);
-        writer.WriteByte(server.Completion);
-        writer.WriteBoolean(true);
+        WriteGameServerInformations(writer, server);
 
         return DofusPacketCodec.Encode(DofusMessageIds.ServerStatusUpdate, writer.ToArray());
     }
@@ -558,11 +557,18 @@ public static class LegacyDofus210Messages
 
     private static void WriteGameServerInformations(DofusDataWriter writer, GameServerSummary server)
     {
+        var flags = (byte)0;
+        flags = SetFlag(flags, 0, false);
+        flags = SetFlag(flags, 1, true);
+
+        writer.WriteByte(flags);
         writer.WriteVarShort(server.Id);
+        writer.WriteByte(server.Type);
         writer.WriteByte(server.Status);
         writer.WriteByte(server.Completion);
-        writer.WriteBoolean(true);
         writer.WriteByte(server.CharactersCount);
+        writer.WriteByte(server.CharacterCapacity);
+        writer.WriteDouble(0);
     }
 
     private static void WriteCharacterBaseInformations(DofusDataWriter writer, CharacterSummary character)
