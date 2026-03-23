@@ -4,7 +4,7 @@ public sealed class ServerOptions
 {
     public const string SectionName = "Server";
 
-    public string Name { get; set; } = "Dofus 2.10 Private Server";
+    public string Name { get; set; } = "Henual";
 
     public string Host { get; set; } = "127.0.0.1";
 
@@ -32,9 +32,9 @@ public sealed class ServerOptions
 
     public string GameTranscriptDirectory { get; set; } = "..\\..\\runtime\\game";
 
-    public short GameServerId { get; set; } = 1;
+    public short GameServerId { get; set; } = 4001;
 
-    public byte ServerCommunityId { get; set; }
+    public byte ServerCommunityId { get; set; } = 4;
 
     public string GameServerAddress { get; set; } = "127.0.0.1";
 

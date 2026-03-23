@@ -61,11 +61,11 @@ public static class AppDataContextHardcode
     [
         new GameServer
         {
-            Id = 1,
-            Name = "Dofus 2.10 Private Server",
+            Id = 4001,
+            Name = "Henual",
             Address = "127.0.0.1",
             Port = 5556,
-            CommunityId = 0,
+            CommunityId = 4,
             Type = 0,
             Status = 1,
             Completion = 0,
