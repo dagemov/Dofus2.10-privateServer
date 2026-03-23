@@ -40,10 +40,10 @@ public sealed record AuthTicketSession(
 
 public static class LegacyDofus210Messages
 {
-    private const ushort CharacterBaseInformationsTypeId = 6238;
-    private const ushort GameRolePlayCharacterInformationsTypeId = 5268;
-    private const ushort HumanInformationsTypeId = 5831;
-    private const ushort EntityDispositionInformationsTypeId = 7114;
+    private const ushort CharacterBaseInformationsTypeId = 274;
+    private const ushort GameRolePlayCharacterInformationsTypeId = 2594;
+    private const ushort HumanInformationsTypeId = 6710;
+    private const ushort EntityDispositionInformationsTypeId = 7343;
 
     public static bool TryReadIdentification(
         ReadOnlySpan<byte> payload,
