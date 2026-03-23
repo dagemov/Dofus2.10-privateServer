@@ -543,16 +543,11 @@ public static class LegacyDofus210Messages
 
     private static void WriteGameServerInformations(DofusDataWriter writer, GameServerSummary server)
     {
-        var flags = (byte)0;
-        flags = SetFlag(flags, 1, true);
-
-        writer.WriteByte(flags);
         writer.WriteVarShort(server.Id);
-        writer.WriteByte(server.Type);
         writer.WriteByte(server.Status);
         writer.WriteByte(server.Completion);
+        writer.WriteBoolean(true);
         writer.WriteByte(server.CharactersCount);
-        writer.WriteByte(server.CharacterCapacity);
         writer.WriteDouble(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     }
 
