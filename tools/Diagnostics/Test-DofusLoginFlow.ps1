@@ -257,34 +257,27 @@ function Parse-ServersListPayload {
     $servers = @()
 
     for ($index = 0; $index -lt $serversCount; $index++) {
-        $flags = [int]$Payload[$offset]
-        $offset += 1
         $serverId = Read-VarIntFromBytes -Bytes $Payload -Offset ([ref]$offset)
         $status = [int]$Payload[$offset]
         $offset += 1
         $completion = [int]$Payload[$offset]
         $offset += 1
+        $isSelectable = $Payload[$offset] -ne 0
+        $offset += 1
         $charactersCount = [int]$Payload[$offset]
         $offset += 1
-        $charactersSlots = [int]$Payload[$offset]
-        $offset += 1
-        $offset += 8
 
         $servers += [pscustomobject]@{
-            Flags = $flags
             ServerId = $serverId
             Status = $status
             Completion = $completion
+            IsSelectable = $isSelectable
             CharactersCount = $charactersCount
-            CharactersSlots = $charactersSlots
         }
     }
 
-    $canCreateNewCharacter = $Payload[$offset] -ne 0
-
     [pscustomobject]@{
         Servers = $servers
-        CanCreateNewCharacter = $canCreateNewCharacter
     }
 }
 
@@ -357,7 +350,7 @@ try {
                 $selectionTarget = $serversList.Servers | Select-Object -First 1
             }
 
-            "AUTH servers: {0}" -f (($serversList.Servers | ForEach-Object { "id=$($_.ServerId)/chars=$($_.CharactersCount)/slots=$($_.CharactersSlots)/flags=$($_.Flags)" }) -join ', ')
+            "AUTH servers: {0}" -f (($serversList.Servers | ForEach-Object { "id=$($_.ServerId)/chars=$($_.CharactersCount)/status=$($_.Status)/selectable=$($_.IsSelectable)" }) -join ', ')
 
             $selectionPayload = New-ServerSelectionPayload -ServerId $selectionTarget.ServerId
             $selectionPacket = Encode-Packet -MessageId 40 -Payload $selectionPayload
