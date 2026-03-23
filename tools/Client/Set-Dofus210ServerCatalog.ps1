@@ -242,31 +242,31 @@ if (-not (Test-Path -LiteralPath $backupFile)) {
 $bytes = [System.IO.File]::ReadAllBytes($serversFile)
 $layout = Find-ServerLayout -Bytes $bytes -ExpectedServerId $ServerId
 
-if ($null -ne $NameTranslationId) {
+if ($PSBoundParameters.ContainsKey('NameTranslationId') -and $null -ne $NameTranslationId) {
     Write-BigEndianInt32 -Bytes $bytes -Offset $layout.NameOffset -Value ([int]$NameTranslationId)
 }
 
-if ($null -ne $CommentTranslationId) {
+if ($PSBoundParameters.ContainsKey('CommentTranslationId') -and $null -ne $CommentTranslationId) {
     Write-BigEndianInt32 -Bytes $bytes -Offset $layout.CommentOffset -Value ([int]$CommentTranslationId)
 }
 
-if ($null -ne $Language) {
+if ($PSBoundParameters.ContainsKey('Language') -and $null -ne $Language) {
     Write-UtfText -Bytes $bytes -Offset $layout.LanguageOffset -Value $Language -ExpectedLength $layout.LanguageLength
 }
 
-if ($null -ne $PopulationId) {
+if ($PSBoundParameters.ContainsKey('PopulationId') -and $null -ne $PopulationId) {
     Write-BigEndianInt32 -Bytes $bytes -Offset $layout.PopulationOffset -Value ([int]$PopulationId)
 }
 
-if ($null -ne $GameTypeId) {
+if ($PSBoundParameters.ContainsKey('GameTypeId') -and $null -ne $GameTypeId) {
     Write-BigEndianInt32 -Bytes $bytes -Offset $layout.GameTypeOffset -Value ([int]$GameTypeId)
 }
 
-if ($null -ne $CommunityId) {
+if ($PSBoundParameters.ContainsKey('CommunityId') -and $null -ne $CommunityId) {
     Write-BigEndianInt32 -Bytes $bytes -Offset $layout.CommunityOffset -Value ([int]$CommunityId)
 }
 
-if ($null -ne $RestrictedToLanguagesCount) {
+if ($PSBoundParameters.ContainsKey('RestrictedToLanguagesCount') -and $null -ne $RestrictedToLanguagesCount) {
     if ([int]$RestrictedToLanguagesCount -ne $layout.RestrictedToLanguagesCount) {
         throw "Cambiar el conteo de idiomas restringidos reescribe el layout del D2O y no esta soportado por este script. Valor actual: $($layout.RestrictedToLanguagesCount)."
     }
@@ -274,7 +274,7 @@ if ($null -ne $RestrictedToLanguagesCount) {
     Write-BigEndianInt32 -Bytes $bytes -Offset $layout.RestrictedCountOffset -Value ([int]$RestrictedToLanguagesCount)
 }
 
-if ($null -ne $MonoAccount) {
+if ($PSBoundParameters.ContainsKey('MonoAccount') -and $null -ne $MonoAccount) {
     Write-BigEndianInt32 -Bytes $bytes -Offset $layout.MonoAccountOffset -Value ([int]$MonoAccount)
 }
 

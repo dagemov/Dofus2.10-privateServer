@@ -177,14 +177,20 @@ public static class LegacyDofus210Messages
 
     public static short ReadServerSelection(ReadOnlySpan<byte> payload)
     {
-        var reader = new DofusDataReader(payload);
-
-        return payload.Length switch
+        if (payload.IsEmpty)
         {
-            1 => (short)reader.ReadByte(),
-            2 => reader.ReadShort(),
-            _ => (short)reader.ReadVarInt()
-        };
+            throw new InvalidOperationException("ServerSelection payload cannot be empty.");
+        }
+
+        var reader = new DofusDataReader(payload);
+        var serverId = reader.ReadVarInt();
+
+        if (reader.Remaining != 0)
+        {
+            throw new InvalidOperationException("Unexpected trailing bytes in ServerSelection payload.");
+        }
+
+        return checked((short)serverId);
     }
 
     public static (string Language, string Ticket) ReadAuthenticationTicket(ReadOnlySpan<byte> payload)
@@ -548,7 +554,6 @@ public static class LegacyDofus210Messages
 
         writer.WriteByte(flags);
         writer.WriteVarShort(server.Id);
-        writer.WriteByte(server.Type);
         writer.WriteByte(server.Status);
         writer.WriteByte(server.Completion);
         writer.WriteByte(server.CharactersCount);
