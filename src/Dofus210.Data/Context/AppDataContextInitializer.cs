@@ -18,6 +18,7 @@ public sealed class AppDataContextInitializer : IAppDataContextInitializer
         await SynchronizeHardcodedAccountsAsync(cancellationToken);
         await SynchronizeHardcodedBreedsAsync(cancellationToken);
         await SynchronizeHardcodedGameServersAsync(cancellationToken);
+        await NormalizeSpawnPositionsAsync(cancellationToken);
 
         return databaseCreated;
     }
@@ -281,5 +282,33 @@ public sealed class AppDataContextInitializer : IAppDataContextInitializer
         }
 
         return changed;
+    }
+
+    private async Task NormalizeSpawnPositionsAsync(CancellationToken cancellationToken)
+    {
+        var positions = await _context.CharacterPositions
+            .Where(position =>
+                position.MapId == AppDataContextHardcode.LegacyInvalidSpawnMapId ||
+                position.MapId == AppDataContextHardcode.InterimInvalidSpawnMapId ||
+                position.MapId <= 0 ||
+                position.CellId < 0 ||
+                position.CellId > 559 ||
+                position.Direction == 0 ||
+                position.Direction > 7)
+            .ToListAsync(cancellationToken);
+
+        if (positions.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var position in positions)
+        {
+            position.MapId = AppDataContextHardcode.DefaultSpawnMapId;
+            position.CellId = AppDataContextHardcode.DefaultSpawnCellId;
+            position.Direction = AppDataContextHardcode.DefaultSpawnDirection;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
     }
 }

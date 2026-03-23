@@ -234,6 +234,20 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
         .Where(color => color > 0)
         .ToArray();
 
+        var normalizedMapId = character.Position?.MapId is > 0 &&
+                              character.Position.MapId != AppDataContextHardcode.LegacyInvalidSpawnMapId &&
+                              character.Position.MapId != AppDataContextHardcode.InterimInvalidSpawnMapId
+            ? character.Position.MapId
+            : AppDataContextHardcode.DefaultSpawnMapId;
+
+        var normalizedCellId = position?.CellId is >= 0 and <= 559
+            ? position.CellId
+            : AppDataContextHardcode.DefaultSpawnCellId;
+
+        var normalizedDirection = position?.Direction is > 0 and <= 7
+            ? position.Direction
+            : AppDataContextHardcode.DefaultSpawnDirection;
+
         return new CharacterSelectionContext(
             new CharacterSummary(
                 character.Id,
@@ -255,15 +269,9 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
             stats?.MaxEnergyPoints ?? 10000,
             stats?.ActionPoints ?? 6,
             stats?.MovementPoints ?? 3,
-            position?.MapId > 0
-                ? position.MapId
-                : AppDataContextHardcode.DefaultSpawnMapId,
-            position?.CellId > 0
-                ? position.CellId
-                : AppDataContextHardcode.DefaultSpawnCellId,
-            position?.Direction > 0
-                ? position.Direction
-                : AppDataContextHardcode.DefaultSpawnDirection,
+            normalizedMapId,
+            normalizedCellId,
+            normalizedDirection,
             AppDataContextHardcode.DefaultSpawnSubAreaId);
     }
 

@@ -7,8 +7,12 @@ public static class AppDataContextHardcode
     public const string SqlServerConnectionString =
         "Server=DAGEMOV\\SQLEXPRESS;Database=Dofus2.10;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 
-    // This is a placeholder map id sampled from the local client map archives.
-    public const int DefaultSpawnMapId = 80217600;
+    // This map id was verified to exist in the local client map archives as 1/80217091.dlm.
+    public const int DefaultSpawnMapId = 80217091;
+
+    public const int LegacyInvalidSpawnMapId = 80217600;
+
+    public const int InterimInvalidSpawnMapId = 80217607;
 
     public const short DefaultSpawnCellId = 300;
 
