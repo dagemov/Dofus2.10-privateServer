@@ -9,7 +9,7 @@ public sealed class AuthTicketStore : IAuthTicketStore
 {
     private readonly ConcurrentDictionary<string, AuthTicketSession> _sessions = new(StringComparer.Ordinal);
 
-    public AuthTicketSession Issue(AuthenticatedAccount account, int timeToLiveMinutes)
+    public AuthTicketSession Issue(AuthenticatedAccount account, short gameServerId, int timeToLiveMinutes)
     {
         var ticket = Convert.ToBase64String(RandomNumberGenerator.GetBytes(12));
         var issuedAtUtc = DateTimeOffset.UtcNow;
@@ -17,6 +17,7 @@ public sealed class AuthTicketStore : IAuthTicketStore
         var session = new AuthTicketSession(
             ticket,
             Encoding.ASCII.GetBytes(ticket),
+            gameServerId,
             account,
             issuedAtUtc,
             expiresAtUtc);

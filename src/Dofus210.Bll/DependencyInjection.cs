@@ -9,6 +9,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IAccountDirectoryService, AccountDirectoryService>();
         services.AddScoped<ICharacterDirectoryService, CharacterDirectoryService>();
+        services.AddScoped<IGameServerDirectoryService, GameServerDirectoryService>();
         services.AddScoped<IServerBootstrapService, ServerBootstrapService>();
         return services;
     }

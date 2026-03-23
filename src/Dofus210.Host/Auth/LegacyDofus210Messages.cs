@@ -33,6 +33,7 @@ public sealed record LegacyGameMapMovementRequest(
 public sealed record AuthTicketSession(
     string Ticket,
     byte[] TicketPayload,
+    short GameServerId,
     AuthenticatedAccount Account,
     DateTimeOffset IssuedAtUtc,
     DateTimeOffset ExpiresAtUtc);
@@ -368,27 +369,31 @@ public static class LegacyDofus210Messages
         return DofusPacketCodec.Encode(DofusMessageIds.IdentificationSuccess, writer.ToArray());
     }
 
-    public static byte[] CreateServersListPacket(ServerOptions options)
+    public static byte[] CreateServersListPacket(IReadOnlyCollection<GameServerSummary> servers)
     {
         using var writer = new DofusDataWriter();
 
-        writer.WriteUnsignedShort(1);
-        WriteGameServerInformations(writer, options);
-        writer.WriteUnsignedShort(0);
-        writer.WriteBoolean(options.GameServerCanCreateNewCharacter);
+        writer.WriteUnsignedShort((ushort)servers.Count);
+
+        foreach (var server in servers)
+        {
+            WriteGameServerInformations(writer, server);
+        }
+
+        writer.WriteBoolean(servers.Any(server => server.CanCreateNewCharacter));
 
         return DofusPacketCodec.Encode(DofusMessageIds.ServersList, writer.ToArray());
     }
 
-    public static byte[] CreateSelectedServerDataPacket(ServerOptions options, AuthTicketSession ticketSession)
+    public static byte[] CreateSelectedServerDataPacket(GameServerSummary server, AuthTicketSession ticketSession)
     {
         using var writer = new DofusDataWriter();
 
-        writer.WriteVarShort(options.GameServerId);
-        writer.WriteUtf(options.GameServerAddress);
+        writer.WriteVarShort(server.Id);
+        writer.WriteUtf(server.Address);
         writer.WriteUnsignedShort(1);
-        writer.WriteVarShort(options.GamePort);
-        writer.WriteBoolean(options.GameServerCanCreateNewCharacter);
+        writer.WriteVarShort(server.Port);
+        writer.WriteBoolean(server.CanCreateNewCharacter);
         writer.WriteVarInt(ticketSession.TicketPayload.Length);
         writer.WriteBytes(ticketSession.TicketPayload);
 
@@ -536,17 +541,18 @@ public static class LegacyDofus210Messages
         return DofusPacketCodec.Encode(DofusMessageIds.MapFightCount, writer.ToArray());
     }
 
-    private static void WriteGameServerInformations(DofusDataWriter writer, ServerOptions options)
+    private static void WriteGameServerInformations(DofusDataWriter writer, GameServerSummary server)
     {
         var flags = (byte)0;
-        flags = SetFlag(flags, 0, true);
+        flags = SetFlag(flags, 1, true);
 
         writer.WriteByte(flags);
-        writer.WriteVarShort(options.GameServerId);
-        writer.WriteByte(options.GameServerType);
-        writer.WriteByte(options.GameServerStatus);
-        writer.WriteByte(options.GameServerCompletion);
-        writer.WriteByte(0);
+        writer.WriteVarShort(server.Id);
+        writer.WriteByte(server.Type);
+        writer.WriteByte(server.Status);
+        writer.WriteByte(server.Completion);
+        writer.WriteByte(server.CharactersCount);
+        writer.WriteByte(server.CharacterCapacity);
         writer.WriteDouble(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     }
 

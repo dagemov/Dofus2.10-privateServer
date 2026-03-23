@@ -95,6 +95,7 @@ public sealed class AuthServerHostedService : BackgroundService
 
         await using var scope = _serviceScopeFactory.CreateAsyncScope();
         var accountDirectoryService = scope.ServiceProvider.GetRequiredService<IAccountDirectoryService>();
+        var gameServerDirectoryService = scope.ServiceProvider.GetRequiredService<IGameServerDirectoryService>();
 
         using (tcpClient)
         {
@@ -196,6 +197,7 @@ public sealed class AuthServerHostedService : BackgroundService
                                 state,
                                 handshakePayloads,
                                 accountDirectoryService,
+                                gameServerDirectoryService,
                                 stoppingToken);
                         }
                     }
@@ -227,6 +229,7 @@ public sealed class AuthServerHostedService : BackgroundService
         AuthConnectionState state,
         AuthHandshakePayloads handshakePayloads,
         IAccountDirectoryService accountDirectoryService,
+        IGameServerDirectoryService gameServerDirectoryService,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
@@ -316,6 +319,7 @@ public sealed class AuthServerHostedService : BackgroundService
                     packet.Payload,
                     state,
                     accountDirectoryService,
+                    gameServerDirectoryService,
                     cancellationToken);
                 break;
 
@@ -334,6 +338,7 @@ public sealed class AuthServerHostedService : BackgroundService
                     remoteEndPoint,
                     packet.Payload,
                     state,
+                    gameServerDirectoryService,
                     cancellationToken);
                 break;
 
@@ -354,6 +359,7 @@ public sealed class AuthServerHostedService : BackgroundService
         ReadOnlyMemory<byte> payload,
         AuthConnectionState state,
         IAccountDirectoryService accountDirectoryService,
+        IGameServerDirectoryService gameServerDirectoryService,
         CancellationToken cancellationToken)
     {
         if (!LegacyDofus210Messages.TryReadIdentification(payload.Span, out var identification) ||
@@ -416,6 +422,9 @@ public sealed class AuthServerHostedService : BackgroundService
         }
 
         state.Account = authentication.Account;
+        var availableServers = await gameServerDirectoryService.ListForAccountAsync(
+            authentication.Account.Id,
+            cancellationToken);
 
         await SendPayloadAsync(
             stream,
@@ -437,15 +446,15 @@ public sealed class AuthServerHostedService : BackgroundService
             stream,
             connectionId,
             remoteEndPoint,
-            LegacyDofus210Messages.CreateServersListPacket(_serverOptions),
+            LegacyDofus210Messages.CreateServersListPacket(availableServers),
             cancellationToken);
 
         _logger.LogInformation(
-            "Identification accepted. ConnectionId={ConnectionId} Username={Username} AccountId={AccountId} GameServerId={GameServerId}",
+            "Identification accepted. ConnectionId={ConnectionId} Username={Username} AccountId={AccountId} PublishedServerIds={PublishedServerIds}",
             connectionId,
             authentication.Account.Username,
             authentication.Account.Id,
-            _serverOptions.GameServerId);
+            string.Join(", ", availableServers.Select(server => server.Id)));
     }
 
     private async Task HandleServerSelectionAsync(
@@ -454,6 +463,7 @@ public sealed class AuthServerHostedService : BackgroundService
         string remoteEndPoint,
         ReadOnlyMemory<byte> payload,
         AuthConnectionState state,
+        IGameServerDirectoryService gameServerDirectoryService,
         CancellationToken cancellationToken)
     {
         var requestedServerId = LegacyDofus210Messages.ReadServerSelection(payload.Span);
@@ -471,7 +481,12 @@ public sealed class AuthServerHostedService : BackgroundService
             return;
         }
 
-        if (requestedServerId != _serverOptions.GameServerId)
+        var selectedServer = await gameServerDirectoryService.FindForAccountAsync(
+            state.Account.Id,
+            requestedServerId,
+            cancellationToken);
+
+        if (selectedServer is null)
         {
             await SendPayloadAsync(
                 stream,
@@ -484,21 +499,23 @@ public sealed class AuthServerHostedService : BackgroundService
                 cancellationToken);
 
             _logger.LogWarning(
-                "Server selection refused. ConnectionId={ConnectionId} RequestedServerId={RequestedServerId} ExpectedServerId={ExpectedServerId}",
+                "Server selection refused. ConnectionId={ConnectionId} RequestedServerId={RequestedServerId}",
                 connectionId,
-                requestedServerId,
-                _serverOptions.GameServerId);
+                requestedServerId);
 
             return;
         }
 
-        var ticketSession = _authTicketStore.Issue(state.Account, _serverOptions.GameTicketTimeToLiveMinutes);
+        var ticketSession = _authTicketStore.Issue(
+            state.Account,
+            selectedServer.Id,
+            _serverOptions.GameTicketTimeToLiveMinutes);
 
         await SendPayloadAsync(
             stream,
             connectionId,
             remoteEndPoint,
-            LegacyDofus210Messages.CreateSelectedServerDataPacket(_serverOptions, ticketSession),
+            LegacyDofus210Messages.CreateSelectedServerDataPacket(selectedServer, ticketSession),
             cancellationToken);
 
         _logger.LogInformation(
@@ -506,8 +523,8 @@ public sealed class AuthServerHostedService : BackgroundService
             connectionId,
             requestedServerId,
             ticketSession.Ticket,
-            _serverOptions.GameServerAddress,
-            _serverOptions.GamePort);
+            selectedServer.Address,
+            selectedServer.Port);
     }
 
     private static bool ContainsPolicyFileRequest(string asciiPayload)
