@@ -214,6 +214,20 @@ public sealed class AuthServerHostedService : BackgroundService
                     connectionId,
                     _serverOptions.AuthReceiveTimeoutMs);
             }
+            catch (IOException exception) when (IsExpectedRemoteDisconnect(exception))
+            {
+                _logger.LogInformation(
+                    "Auth client closed the connection during session flow. ConnectionId={ConnectionId} Reason={Reason}",
+                    connectionId,
+                    ExtractSocketError(exception)?.ToString() ?? exception.GetType().Name);
+            }
+            catch (SocketException exception) when (IsExpectedRemoteDisconnect(exception))
+            {
+                _logger.LogInformation(
+                    "Auth client closed the socket during session flow. ConnectionId={ConnectionId} Reason={Reason}",
+                    connectionId,
+                    exception.SocketErrorCode);
+            }
             catch (Exception exception)
             {
                 _logger.LogError(exception, "Auth session failed. ConnectionId={ConnectionId}", connectionId);
@@ -671,6 +685,27 @@ public sealed class AuthServerHostedService : BackgroundService
         }
 
         return builder.ToString().Trim();
+    }
+
+    private static bool IsExpectedRemoteDisconnect(Exception exception)
+    {
+        var socketError = ExtractSocketError(exception);
+
+        return socketError is SocketError.ConnectionReset
+            or SocketError.ConnectionAborted
+            or SocketError.OperationAborted
+            or SocketError.Shutdown
+            or SocketError.Interrupted;
+    }
+
+    private static SocketError? ExtractSocketError(Exception exception)
+    {
+        return exception switch
+        {
+            SocketException socketException => socketException.SocketErrorCode,
+            IOException ioException when ioException.InnerException is SocketException socketException => socketException.SocketErrorCode,
+            _ => null
+        };
     }
 
     private sealed class AuthConnectionState
