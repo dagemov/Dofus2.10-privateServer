@@ -4,7 +4,7 @@ public sealed class ServerOptions
 {
     public const string SectionName = "Server";
 
-    public string Name { get; set; } = "Henual";
+    public string Name { get; set; } = "Rushu";
 
     public string Host { get; set; } = "127.0.0.1";
 
@@ -32,17 +32,17 @@ public sealed class ServerOptions
 
     public string GameTranscriptDirectory { get; set; } = "..\\..\\runtime\\game";
 
-    public short GameServerId { get; set; } = 4001;
+    public short GameServerId { get; set; } = 1;
 
     public byte ServerCommunityId { get; set; } = 4;
 
     public string GameServerAddress { get; set; } = "127.0.0.1";
 
-    public byte GameServerType { get; set; } = 0;
+    public byte GameServerType { get; set; } = 1;
 
     public byte GameServerStatus { get; set; } = 1;
 
-    public byte GameServerCompletion { get; set; } = 0;
+    public byte GameServerCompletion { get; set; } = 1;
 
     public byte GameServerCharacterSlots { get; set; } = 5;
 

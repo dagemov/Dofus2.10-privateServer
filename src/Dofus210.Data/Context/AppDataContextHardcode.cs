@@ -61,14 +61,27 @@ public static class AppDataContextHardcode
     [
         new GameServer
         {
+            Id = 1,
+            Name = "Rushu",
+            Address = "127.0.0.1",
+            Port = 5556,
+            CommunityId = 4,
+            Type = 1,
+            Status = 1,
+            Completion = 1,
+            CharacterCapacity = 5,
+            CanCreateNewCharacter = true
+        },
+        new GameServer
+        {
             Id = 4001,
             Name = "Henual",
             Address = "127.0.0.1",
             Port = 5556,
             CommunityId = 4,
-            Type = 0,
+            Type = 1,
             Status = 1,
-            Completion = 0,
+            Completion = 1,
             CharacterCapacity = 5,
             CanCreateNewCharacter = true
         }
