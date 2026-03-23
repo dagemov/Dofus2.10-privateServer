@@ -219,6 +219,31 @@ public static class LegacyDofus210Messages
         }
     }
 
+    public static bool TryReadCharacterSelection(
+        ReadOnlySpan<byte> payload,
+        out long characterId)
+    {
+        characterId = 0;
+
+        try
+        {
+            var reader = new DofusDataReader(payload);
+            characterId = reader.ReadVarLong();
+
+            if (reader.Remaining != 0 || characterId <= 0)
+            {
+                throw new InvalidOperationException("Unexpected payload for CharacterSelection.");
+            }
+
+            return true;
+        }
+        catch
+        {
+            characterId = 0;
+            return false;
+        }
+    }
+
     public static byte[] CreateCredentialsAcknowledgementPacket()
     {
         return DofusPacketCodec.Encode(DofusMessageIds.CredentialsAcknowledgement, []);

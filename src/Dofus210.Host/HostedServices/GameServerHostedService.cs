@@ -14,6 +14,10 @@ namespace Dofus210.Host.HostedServices;
 
 public sealed class GameServerHostedService : BackgroundService
 {
+    private const ushort CharactersListRequestModernMessageId = 2566;
+    private const ushort CharacterCreationRequestModernMessageId = 1738;
+    private const ushort CharacterSelectionModernMessageId = 6200;
+
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly IHostEnvironment _hostEnvironment;
     private readonly IAuthTicketStore _authTicketStore;
@@ -212,7 +216,7 @@ public sealed class GameServerHostedService : BackgroundService
                                 continue;
                             }
 
-                            if (packet.MessageId == DofusMessageIds.CharactersListRequest)
+                            if (IsCharactersListRequestMessage(packet.MessageId))
                             {
                                 if (state.Account is null)
                                 {
@@ -233,13 +237,31 @@ public sealed class GameServerHostedService : BackgroundService
                                     state.Account.Id,
                                     characters.Count);
 
-                                await SendPayloadAsync(
+                                await SendCharactersListAsync(
                                     stream,
                                     connectionId,
                                     remoteEndPoint,
-                                    LegacyDofus210Messages.CreateCharactersListPacket(characters),
+                                    state,
+                                    characters,
                                     stoppingToken);
 
+                                continue;
+                            }
+
+                            if (await TryHandleCharacterCreationAsync(
+                                    packet,
+                                    state,
+                                    characterDirectoryService,
+                                    stream,
+                                    connectionId,
+                                    remoteEndPoint,
+                                    stoppingToken))
+                            {
+                                continue;
+                            }
+
+                            if (TryHandleCharacterSelection(packet, state, connectionId))
+                            {
                                 continue;
                             }
 
@@ -307,6 +329,166 @@ public sealed class GameServerHostedService : BackgroundService
                 hexPayload));
     }
 
+    private async Task SendCharactersListAsync(
+        NetworkStream stream,
+        string connectionId,
+        string remoteEndPoint,
+        GameConnectionState state,
+        IReadOnlyList<CharacterSummary> characters,
+        CancellationToken cancellationToken)
+    {
+        state.SetKnownCharacters(characters);
+
+        await SendPayloadAsync(
+            stream,
+            connectionId,
+            remoteEndPoint,
+            LegacyDofus210Messages.CreateCharactersListPacket(characters),
+            cancellationToken);
+    }
+
+    private async Task<bool> TryHandleCharacterCreationAsync(
+        DofusPacket packet,
+        GameConnectionState state,
+        ICharacterDirectoryService characterDirectoryService,
+        NetworkStream stream,
+        string connectionId,
+        string remoteEndPoint,
+        CancellationToken cancellationToken)
+    {
+        if (state.Account is null ||
+            !TryResolveCharacterCreationRequest(packet, out var request) ||
+            request is null)
+        {
+            return false;
+        }
+
+        var creationResult = await characterDirectoryService.CreateAsync(
+            state.Account.Id,
+            _serverOptions.GameServerId,
+            request,
+            cancellationToken);
+
+        _logger.LogInformation(
+            "CharacterCreationRequest handled. ConnectionId={ConnectionId} MessageId={MessageId} AccountId={AccountId} Name={Name} BreedId={BreedId} ResultCode={ResultCode} Success={Success}",
+            connectionId,
+            packet.MessageId,
+            state.Account.Id,
+            request.Name,
+            request.BreedId,
+            creationResult.ResultCode,
+            creationResult.Character is not null);
+
+        await SendPayloadAsync(
+            stream,
+            connectionId,
+            remoteEndPoint,
+            LegacyDofus210Messages.CreateCharacterCreationResultPacket(creationResult.ResultCode),
+            cancellationToken);
+
+        if (creationResult.Character is null)
+        {
+            return true;
+        }
+
+        var characters = await characterDirectoryService.ListForAccountAsync(
+            state.Account.Id,
+            _serverOptions.GameServerId,
+            cancellationToken);
+
+        await SendCharactersListAsync(
+            stream,
+            connectionId,
+            remoteEndPoint,
+            state,
+            characters,
+            cancellationToken);
+
+        return true;
+    }
+
+    private bool TryHandleCharacterSelection(
+        DofusPacket packet,
+        GameConnectionState state,
+        string connectionId)
+    {
+        if (state.Account is null ||
+            state.KnownCharacterIds.Count == 0 ||
+            !TryResolveCharacterSelection(packet, state.KnownCharacterIds, out var characterId))
+        {
+            return false;
+        }
+
+        state.SelectedCharacterId = characterId;
+
+        _logger.LogInformation(
+            "CharacterSelection received. ConnectionId={ConnectionId} MessageId={MessageId} AccountId={AccountId} CharacterId={CharacterId} WorldBootstrapImplemented={WorldBootstrapImplemented}",
+            connectionId,
+            packet.MessageId,
+            state.Account.Id,
+            characterId,
+            false);
+
+        return true;
+    }
+
+    private static bool TryResolveCharacterCreationRequest(
+        DofusPacket packet,
+        out CharacterCreationRequest? request)
+    {
+        request = null;
+
+        if (packet.Payload.Length < 28 ||
+            packet.Payload.Length > 256 ||
+            !LegacyDofus210Messages.TryReadCharacterCreationRequest(packet.Payload, out request) ||
+            request is null)
+        {
+            return false;
+        }
+
+        return packet.MessageId == CharacterCreationRequestModernMessageId ||
+               LooksLikeCharacterCreationRequest(request);
+    }
+
+    private static bool TryResolveCharacterSelection(
+        DofusPacket packet,
+        IReadOnlySet<long> knownCharacterIds,
+        out long characterId)
+    {
+        characterId = 0;
+
+        if (!LegacyDofus210Messages.TryReadCharacterSelection(packet.Payload, out characterId))
+        {
+            return false;
+        }
+
+        return packet.MessageId == CharacterSelectionModernMessageId ||
+               knownCharacterIds.Contains(characterId);
+    }
+
+    private static bool IsCharactersListRequestMessage(ushort messageId)
+    {
+        return messageId == DofusMessageIds.CharactersListRequest ||
+               messageId == CharactersListRequestModernMessageId;
+    }
+
+    private static bool LooksLikeCharacterCreationRequest(CharacterCreationRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name) ||
+            request.Name.Length is < 3 or > 20 ||
+            request.BreedId is < 1 or > 20)
+        {
+            return false;
+        }
+
+        if (!char.IsLetter(request.Name[0]))
+        {
+            return false;
+        }
+
+        return request.Name.All(character => char.IsLetter(character) || character == '-');
+    }
+
     private string ResolveTranscriptPath()
     {
         if (Path.IsPathRooted(_serverOptions.GameTranscriptDirectory))
@@ -324,6 +506,20 @@ public sealed class GameServerHostedService : BackgroundService
     private sealed class GameConnectionState
     {
         public AuthenticatedAccount? Account { get; set; }
+
+        public long? SelectedCharacterId { get; set; }
+
+        public HashSet<long> KnownCharacterIds { get; } = [];
+
+        public void SetKnownCharacters(IEnumerable<CharacterSummary> characters)
+        {
+            KnownCharacterIds.Clear();
+
+            foreach (var character in characters)
+            {
+                KnownCharacterIds.Add(character.Id);
+            }
+        }
     }
 
 }

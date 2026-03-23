@@ -27,12 +27,31 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
         short gameServerId,
         CancellationToken cancellationToken = default)
     {
-        var characters = await _unitOfWork
+        var rows = await _unitOfWork
             .Repository<Character>()
             .Query()
             .AsNoTracking()
             .Where(character => character.AccountId == accountId && character.GameServerId == gameServerId)
             .OrderBy(character => character.CreatedAtUtc)
+            .Select(character => new
+            {
+                character.Id,
+                character.Name,
+                character.Level,
+                character.BreedId,
+                character.Sex,
+                character.BonesId,
+                character.SkinId,
+                character.CosmeticId,
+                character.Color1,
+                character.Color2,
+                character.Color3,
+                character.Color4,
+                character.Color5
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows
             .Select(character => new CharacterSummary(
                 character.Id,
                 character.Name,
@@ -52,9 +71,7 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
                 }
                 .Where(color => color > 0)
                 .ToArray()))
-            .ToListAsync(cancellationToken);
-
-        return characters;
+            .ToArray();
     }
 
     public async Task<bool> CanCreateAsync(
