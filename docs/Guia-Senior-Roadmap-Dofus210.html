@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Guia Senior - Roadmap Dofus 2.10 .NET</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm;
+    }
+
+    :root {
+      --ink: #1f1a17;
+      --muted: #5e5148;
+      --accent: #8a3b12;
+      --accent-soft: #f4e7dc;
+      --line: #d8c7bb;
+      --paper: #fffaf6;
+      --panel: #fffdfb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: linear-gradient(180deg, #f8efe7 0%, #fffaf6 100%);
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.45;
+      font-size: 12.5px;
+    }
+
+    .page {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 20px 10px 28px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #43291f 0%, #6d3519 55%, #a7541f 100%);
+      color: #fff7f0;
+      border-radius: 18px;
+      padding: 28px 30px;
+      box-shadow: 0 18px 40px rgba(61, 30, 16, 0.18);
+      margin-bottom: 18px;
+    }
+
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.15;
+    }
+
+    .hero p {
+      margin: 4px 0;
+      color: #f7dfcf;
+      font-size: 13px;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin-bottom: 14px;
+      box-shadow: 0 10px 24px rgba(94, 81, 72, 0.06);
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      color: var(--accent);
+      border-bottom: 2px solid var(--accent-soft);
+      padding-bottom: 6px;
+    }
+
+    h3 {
+      margin: 14px 0 8px;
+      font-size: 14px;
+      color: #512615;
+    }
+
+    p {
+      margin: 8px 0;
+    }
+
+    ul, ol {
+      margin: 8px 0 0 18px;
+      padding: 0;
+    }
+
+    li {
+      margin: 4px 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f6ebe4;
+      color: #5a2b18;
+      font-size: 12px;
+    }
+
+    .note {
+      background: #fff1e6;
+      border-left: 4px solid var(--accent);
+      padding: 10px 12px;
+      border-radius: 8px;
+      color: #4c3429;
+      margin-top: 10px;
+    }
+
+    .footer {
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+      padding-top: 6px;
+    }
+
+    @media print {
+      .page {
+        padding: 0;
+      }
+
+      .section, .hero, .card {
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Guia Senior - Roadmap Dofus 2.10 .NET</h1>
+      <p>Fecha: 2026-03-23</p>
+      <p>Proyecto: Dofus 2.10 Private Server</p>
+      <p>Objetivo: seguir un plan profesional, escalable y jugable por vertical slices.</p>
+    </section>
+
+    <section class="section">
+      <h2>1. Vision Del Proyecto</h2>
+      <p>Construir un emulador Dofus 2.10 en .NET con arquitectura limpia, trazabilidad de protocolo y una base de datos controlada por nosotros.</p>
+      <p>La meta no es solo conectar el cliente, sino dejar una base que soporte autenticacion, personajes, mundo, inventario, NPCs y combate sin deuda tecnica innecesaria.</p>
+    </section>
+
+    <section class="section">
+      <h2>2. Estado Actual</h2>
+      <div class="grid">
+        <div class="card">
+          <div class="badge">Completado</div>
+          <ul>
+            <li>AuthServer funcional en .NET</li>
+            <li>GameServer funcional en .NET</li>
+            <li>Login completo desde cliente</li>
+            <li>Seleccion de servidor operativa</li>
+            <li>Ticket auth-to-game operativo</li>
+            <li>CharactersList vacia respondida por el host</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="badge">Hallazgo Clave</div>
+          <p>El bug principal de desconexion venia del bootstrap capturado. Se estaba enviando una cola falsa 1/1, no un problema real del cliente ni del socket base.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>3. Principios De Diseno</h2>
+      <ol>
+        <li>La DB de runtime es nuestra y no depende de SQLs antiguas de terceros.</li>
+        <li>El contenido estatico debe importarse desde el cliente siempre que sea posible.</li>
+        <li>El protocolo y la logica de negocio no deben mezclarse.</li>
+        <li>Cada fase debe cerrar un flujo real del cliente.</li>
+        <li>El proyecto debe crecer por vertical slices, no por bloques aislados.</li>
+      </ol>
+    </section>
+
+    <section class="section">
+      <h2>4. Arquitectura Objetivo</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Capa Host</h3>
+          <p>Listeners, sockets, protocolo auth/game, sessions, tickets, logging de trafico y composicion del host.</p>
+        </div>
+        <div class="card">
+          <h3>Capa Bll</h3>
+          <p>Casos de uso, reglas de negocio, cuentas, personajes, mundo y servicios de aplicacion.</p>
+        </div>
+        <div class="card">
+          <h3>Capa Data</h3>
+          <p>EF Core, AppDataContext, UnitOfWork, repositories, persistencia, seeds e importers.</p>
+        </div>
+        <div class="card">
+          <h3>Capa Helper</h3>
+          <p>Utilidades puras, extensiones, conversores y piezas compartidas sin dominio.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>5. Estrategia Senior Para La Base De Datos</h2>
+      <p>La recomendacion es no depender de una base SQL antigua encontrada en internet como fuente principal del emulador.</p>
+      <div class="note">
+        Decision recomendada: base propia desde cero para runtime y contenido estatico importado desde el cliente.
+      </div>
+
+      <h3>Por que no usar una SQL antigua como base oficial</h3>
+      <ul>
+        <li>Puede no coincidir con tu cliente 2.10 real.</li>
+        <li>Suele traer custom de otro servidor.</li>
+        <li>Introduce ids y estructuras que no controlamos.</li>
+        <li>Te deja acoplado a un modelo historico y opaco.</li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>6. Modelo De Datos Recomendado</h2>
+      <div class="grid">
+        <div class="card">
+          <div class="badge">Runtime Data</div>
+          <ul>
+            <li>Accounts</li>
+            <li>AccountSessions</li>
+            <li>AuthTickets</li>
+            <li>GameServers</li>
+            <li>Characters</li>
+            <li>CharacterStats</li>
+            <li>CharacterPositions</li>
+            <li>CharacterSpells</li>
+            <li>CharacterInventory</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="badge">Static Data</div>
+          <ul>
+            <li>Breeds</li>
+            <li>Maps</li>
+            <li>MapCells</li>
+            <li>SubAreas</li>
+            <li>NpcTemplates</li>
+            <li>MonsterTemplates</li>
+            <li>ItemTemplates</li>
+            <li>SpellTemplates</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>7. Estrategia De Contenido</h2>
+      <p>No conviene crear a mano razas, mapas y contenido masivo. La ruta buena es construir importadores y poblar solo el primer vertical slice jugable.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Origen</th>
+            <th>Uso</th>
+            <th>Objetivo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Cliente 2.10</td>
+            <td>Extraer data estatica</td>
+            <td>Razas, textos, mapas y metadatos</td>
+          </tr>
+          <tr>
+            <td>DB propia</td>
+            <td>Persistencia runtime</td>
+            <td>Cuentas, personajes, posiciones, tickets</td>
+          </tr>
+          <tr>
+            <td>Tools/Importers</td>
+            <td>Transformacion controlada</td>
+            <td>Evitar carga manual y rework</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>8. Vertical Slice Inicial</h2>
+      <p>No se debe intentar levantar todo Dofus de una vez. El primer slice jugable recomendado es:</p>
+      <ul>
+        <li>1 servidor visible y funcional</li>
+        <li>razas cargadas</li>
+        <li>creacion de personaje</li>
+        <li>lista de personajes persistida</li>
+        <li>spawn en Incarnam</li>
+        <li>1 mapa funcional de inicio</li>
+        <li>entrada al mundo</li>
+        <li>movimiento basico</li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>9. Roadmap Por Fases</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Fase</th>
+            <th>Objetivo</th>
+            <th>Resultado Esperado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Fase 1</td>
+            <td>Conexion base</td>
+            <td>Login, seleccion de servidor y ticket resueltos</td>
+          </tr>
+          <tr>
+            <td>Fase 2</td>
+            <td>Personajes</td>
+            <td>CharactersList real y creacion de personaje</td>
+          </tr>
+          <tr>
+            <td>Fase 3</td>
+            <td>Entrada al mundo</td>
+            <td>Spawn en Incarnam y entrada al mapa</td>
+          </tr>
+          <tr>
+            <td>Fase 4</td>
+            <td>Movimiento</td>
+            <td>Desplazamiento valido y persistencia de posicion</td>
+          </tr>
+          <tr>
+            <td>Fase 5</td>
+            <td>Contenido base</td>
+            <td>NPCs, dialogos, inventario y hechizos iniciales</td>
+          </tr>
+          <tr>
+            <td>Fase 6</td>
+            <td>Combate</td>
+            <td>Turnos, hechizos y danos minimos</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>10. Siguiente Sprint Recomendado</h2>
+      <ol>
+        <li>Crear entidad GameServer persistida.</li>
+        <li>Crear entidades Character, CharacterPosition y CharacterStats.</li>
+        <li>Crear catalogo Breeds.</li>
+        <li>Implementar CharactersList real.</li>
+        <li>Implementar CharacterCreationRequest.</li>
+        <li>Dejar un spawn fijo en Incarnam.</li>
+      </ol>
+    </section>
+
+    <section class="section">
+      <h2>11. Definition Of Done Del Siguiente Sprint</h2>
+      <ul>
+        <li>El cliente lista personajes desde DB.</li>
+        <li>Se puede crear personaje sin datos hardcodeados.</li>
+        <li>El personaje queda persistido correctamente.</li>
+        <li>Al seleccionar personaje se asigna un mapa inicial.</li>
+        <li>El flujo auth-to-game no desconecta al cliente.</li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>12. Decision Final</h2>
+      <p>La ruta profesional para este emulador es:</p>
+      <ul>
+        <li>DB propia desde cero para runtime</li>
+        <li>importadores para static data</li>
+        <li>primer slice centrado en personajes e Incarnam</li>
+      </ul>
+      <p>Esa combinacion te da control tecnico, mejor mantenimiento y una base sana para seguir creciendo.</p>
+    </section>
+
+    <div class="footer">
+      Guia base del proyecto Dofus 2.10 .NET - roadmap senior operativo
+    </div>
+  </div>
+</body>
+</html>
