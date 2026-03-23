@@ -390,12 +390,12 @@ public sealed class AuthServerHostedService : BackgroundService
             identification.ServerId,
             identification.AutoConnect);
 
-        var authenticatedAccount = await accountDirectoryService.ValidateCredentialsAsync(
+        var authentication = await accountDirectoryService.ValidateCredentialsDetailedAsync(
             credentials.Username,
             credentials.Password,
             cancellationToken);
 
-        if (authenticatedAccount is null)
+        if (authentication.Account is null)
         {
             await SendPayloadAsync(
                 stream,
@@ -405,14 +405,17 @@ public sealed class AuthServerHostedService : BackgroundService
                 cancellationToken);
 
             _logger.LogInformation(
-                "Identification refused. ConnectionId={ConnectionId} Username={Username}",
+                "Identification refused. ConnectionId={ConnectionId} Username={Username} UsernameExists={UsernameExists} PasswordMatched={PasswordMatched} PasswordLength={PasswordLength}",
                 connectionId,
-                credentials.Username);
+                credentials.Username,
+                authentication.UsernameExists,
+                authentication.PasswordMatched,
+                credentials.Password.Length);
 
             return;
         }
 
-        state.Account = authenticatedAccount;
+        state.Account = authentication.Account;
 
         await SendPayloadAsync(
             stream,
@@ -426,7 +429,7 @@ public sealed class AuthServerHostedService : BackgroundService
             connectionId,
             remoteEndPoint,
             LegacyDofus210Messages.CreateIdentificationSuccessPacket(
-                authenticatedAccount,
+                authentication.Account,
                 _serverOptions.ServerCommunityId),
             cancellationToken);
 
@@ -440,8 +443,8 @@ public sealed class AuthServerHostedService : BackgroundService
         _logger.LogInformation(
             "Identification accepted. ConnectionId={ConnectionId} Username={Username} AccountId={AccountId} GameServerId={GameServerId}",
             connectionId,
-            authenticatedAccount.Username,
-            authenticatedAccount.Id,
+            authentication.Account.Username,
+            authentication.Account.Id,
             _serverOptions.GameServerId);
     }
 

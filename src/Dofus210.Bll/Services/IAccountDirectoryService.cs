@@ -10,4 +10,9 @@ public interface IAccountDirectoryService
         string username,
         string password,
         CancellationToken cancellationToken = default);
+
+    Task<AuthenticationAttemptResult> ValidateCredentialsDetailedAsync(
+        string username,
+        string password,
+        CancellationToken cancellationToken = default);
 }

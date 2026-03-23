@@ -39,25 +39,45 @@ public sealed class AccountDirectoryService : IAccountDirectoryService
         string password,
         CancellationToken cancellationToken = default)
     {
-        var normalizedUsername = Guard.AgainstNullOrWhiteSpace(username, nameof(username));
+        var result = await ValidateCredentialsDetailedAsync(username, password, cancellationToken);
+        return result.Account;
+    }
+
+    public async Task<AuthenticationAttemptResult> ValidateCredentialsDetailedAsync(
+        string username,
+        string password,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedUsername = Guard.AgainstNullOrWhiteSpace(username, nameof(username)).Trim();
         var normalizedPassword = Guard.AgainstNullOrWhiteSpace(password, nameof(password));
 
         var account = await _unitOfWork
             .Repository<Account>()
-            .FirstOrDefaultAsync(
-                x => x.Username == normalizedUsername && x.PasswordHash == normalizedPassword,
-                cancellationToken);
+            .FirstOrDefaultAsync(x => x.Username == normalizedUsername, cancellationToken);
 
         if (account is null)
         {
-            return null;
+            return new AuthenticationAttemptResult(null, false, false);
         }
 
-        return new AuthenticatedAccount(
-            account.Id,
-            account.Username,
-            account.Nickname,
-            account.IsGameMaster,
-            account.CreatedAtUtc);
+        var passwordMatched = string.Equals(
+            account.PasswordHash,
+            normalizedPassword,
+            StringComparison.Ordinal);
+
+        if (!passwordMatched)
+        {
+            return new AuthenticationAttemptResult(null, true, false);
+        }
+
+        return new AuthenticationAttemptResult(
+            new AuthenticatedAccount(
+                account.Id,
+                account.Username,
+                account.Nickname,
+                account.IsGameMaster,
+                account.CreatedAtUtc),
+            true,
+            true);
     }
 }
