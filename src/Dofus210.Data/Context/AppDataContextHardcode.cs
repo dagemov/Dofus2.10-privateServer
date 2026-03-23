@@ -7,9 +7,14 @@ public static class AppDataContextHardcode
     public const string SqlServerConnectionString =
         "Server=DAGEMOV\\SQLEXPRESS;Database=Dofus2.10;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 
-    public const int DefaultSpawnMapId = 0;
+    // This is a placeholder map id sampled from the local client map archives.
+    public const int DefaultSpawnMapId = 80217600;
 
-    public const short DefaultSpawnCellId = 0;
+    public const short DefaultSpawnCellId = 300;
+
+    public const byte DefaultSpawnDirection = 2;
+
+    public const short DefaultSpawnSubAreaId = 0;
 
     public static IReadOnlyCollection<Account> Accounts { get; } =
     [

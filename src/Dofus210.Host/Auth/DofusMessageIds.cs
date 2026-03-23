@@ -18,9 +18,20 @@ public static class DofusMessageIds
     public const ushort AuthenticationTicketRefused = 112;
     public const ushort CharactersListRequest = 150;
     public const ushort CharactersList = 151;
-    public const ushort CharacterCreationResult = 1146;
+    public const ushort CharacterSelection = 152;
+    public const ushort CharacterSelectedSuccess = 153;
+    public const ushort CharacterCreationRequest = 160;
+    public const ushort CharacterCreationResult = 161;
+    public const ushort BasicTime = 175;
+    public const ushort BasicNoOperation = 176;
     public const ushort BasicPing = 182;
     public const ushort BasicPong = 183;
+    public const ushort GameContextCreate = 200;
+    public const ushort MapFightCount = 210;
+    public const ushort CurrentMap = 220;
+    public const ushort MapInformationsRequest = 225;
+    public const ushort MapComplementaryInformationsData = 226;
+    public const ushort CharacterStatsList = 500;
     public const ushort ClientKey = 5607;
     public const ushort CredentialsAcknowledgement = 6314;
 }

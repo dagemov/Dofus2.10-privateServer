@@ -244,6 +244,31 @@ public static class LegacyDofus210Messages
         }
     }
 
+    public static bool TryReadMapInformationsRequest(
+        ReadOnlySpan<byte> payload,
+        out long mapId)
+    {
+        mapId = 0;
+
+        try
+        {
+            var reader = new DofusDataReader(payload);
+            mapId = (long)reader.ReadDouble();
+
+            if (reader.Remaining != 0 || mapId < 0)
+            {
+                throw new InvalidOperationException("Unexpected payload for MapInformationsRequest.");
+            }
+
+            return true;
+        }
+        catch
+        {
+            mapId = 0;
+            return false;
+        }
+    }
+
     public static byte[] CreateCredentialsAcknowledgementPacket()
     {
         return DofusPacketCodec.Encode(DofusMessageIds.CredentialsAcknowledgement, []);
@@ -355,6 +380,93 @@ public static class LegacyDofus210Messages
         return DofusPacketCodec.Encode(DofusMessageIds.CharacterCreationResult, writer.ToArray());
     }
 
+    public static byte[] CreateCharacterSelectedSuccessPacket(CharacterSelectionContext context)
+    {
+        using var writer = new DofusDataWriter();
+        WriteCharacterBaseInformations(writer, context.Character);
+        writer.WriteBoolean(false);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.CharacterSelectedSuccess, writer.ToArray());
+    }
+
+    public static byte[] CreateGameContextCreatePacket(byte context = 1)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteByte(context);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.GameContextCreate, writer.ToArray());
+    }
+
+    public static byte[] CreateCharacterStatsListPacket(CharacterSelectionContext context)
+    {
+        using var writer = new DofusDataWriter();
+        var experienceNextLevelFloor = Math.Max(context.Experience + 1000, 1000);
+
+        writer.WriteVarLong(context.Experience);
+        writer.WriteVarLong(0);
+        writer.WriteVarLong(experienceNextLevelFloor);
+        writer.WriteVarLong(0);
+        writer.WriteVarLong(context.Kamas);
+
+        WriteActorExtendedAlignmentInformations(writer);
+
+        writer.WriteVarShort(0);
+        writer.WriteUnsignedShort(0);
+        writer.WriteUnsignedShort(0);
+        writer.WriteInt(0);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.CharacterStatsList, writer.ToArray());
+    }
+
+    public static byte[] CreateCurrentMapPacket(int mapId)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteDouble(mapId);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.CurrentMap, writer.ToArray());
+    }
+
+    public static byte[] CreateBasicTimePacket(DateTimeOffset timestamp)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteDouble(timestamp.ToUnixTimeMilliseconds());
+        writer.WriteShort((short)timestamp.Offset.TotalMinutes);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.BasicTime, writer.ToArray());
+    }
+
+    public static byte[] CreateBasicNoOperationPacket()
+    {
+        return DofusPacketCodec.Encode(DofusMessageIds.BasicNoOperation, []);
+    }
+
+    public static byte[] CreateMapComplementaryInformationsDataPacket(CharacterSelectionContext context)
+    {
+        using var writer = new DofusDataWriter();
+
+        writer.WriteVarShort(context.SubAreaId);
+        writer.WriteDouble(context.MapId);
+        writer.WriteUnsignedShort(0);
+        writer.WriteUnsignedShort(0);
+        writer.WriteUnsignedShort(0);
+        writer.WriteUnsignedShort(0);
+        writer.WriteUnsignedShort(0);
+        writer.WriteUnsignedShort(0);
+        writer.WriteBoolean(false);
+        writer.WriteUnsignedShort(0);
+        writer.WriteUnsignedShort(0);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.MapComplementaryInformationsData, writer.ToArray());
+    }
+
+    public static byte[] CreateMapFightCountPacket(ushort fightCount = 0)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteVarShort(fightCount);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.MapFightCount, writer.ToArray());
+    }
+
     private static void WriteGameServerInformations(DofusDataWriter writer, ServerOptions options)
     {
         var flags = (byte)0;
@@ -403,6 +515,18 @@ public static class LegacyDofus210Messages
         writer.WriteUnsignedShort(1);
         writer.WriteVarShort(100);
         writer.WriteUnsignedShort(0);
+    }
+
+    private static void WriteActorExtendedAlignmentInformations(DofusDataWriter writer)
+    {
+        writer.WriteByte(0);
+        writer.WriteByte(0);
+        writer.WriteByte(0);
+        writer.WriteDouble(0);
+        writer.WriteVarShort(0);
+        writer.WriteVarShort(0);
+        writer.WriteVarShort(0);
+        writer.WriteByte(0);
     }
 
     private static byte SetFlag(byte box, int bit, bool value)

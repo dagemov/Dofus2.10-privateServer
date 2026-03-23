@@ -19,4 +19,10 @@ public interface ICharacterDirectoryService
         short gameServerId,
         CharacterCreationRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<CharacterSelectionContext?> GetSelectionContextAsync(
+        int accountId,
+        short gameServerId,
+        long characterId,
+        CancellationToken cancellationToken = default);
 }

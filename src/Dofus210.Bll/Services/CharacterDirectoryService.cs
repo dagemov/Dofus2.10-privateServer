@@ -197,6 +197,76 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
                 colors.Where(color => color > 0).ToArray()));
     }
 
+    public async Task<CharacterSelectionContext?> GetSelectionContextAsync(
+        int accountId,
+        short gameServerId,
+        long characterId,
+        CancellationToken cancellationToken = default)
+    {
+        var character = await _unitOfWork
+            .Repository<Character>()
+            .Query()
+            .AsNoTracking()
+            .Include(current => current.Stats)
+            .Include(current => current.Position)
+            .FirstOrDefaultAsync(
+                current =>
+                    current.Id == characterId &&
+                    current.AccountId == accountId &&
+                    current.GameServerId == gameServerId,
+                cancellationToken);
+
+        if (character is null)
+        {
+            return null;
+        }
+
+        var stats = character.Stats;
+        var position = character.Position;
+        var indexedColors = new[]
+        {
+            character.Color1,
+            character.Color2,
+            character.Color3,
+            character.Color4,
+            character.Color5
+        }
+        .Where(color => color > 0)
+        .ToArray();
+
+        return new CharacterSelectionContext(
+            new CharacterSummary(
+                character.Id,
+                character.Name,
+                character.Level,
+                character.BreedId,
+                character.Sex,
+                character.BonesId,
+                character.SkinId,
+                character.CosmeticId,
+                indexedColors),
+            character.Experience,
+            stats?.Kamas ?? 0,
+            stats?.StatsPoints ?? 0,
+            stats?.SpellsPoints ?? 0,
+            stats?.LifePoints ?? 50,
+            stats?.MaxLifePoints ?? 50,
+            stats?.EnergyPoints ?? 10000,
+            stats?.MaxEnergyPoints ?? 10000,
+            stats?.ActionPoints ?? 6,
+            stats?.MovementPoints ?? 3,
+            position?.MapId > 0
+                ? position.MapId
+                : AppDataContextHardcode.DefaultSpawnMapId,
+            position?.CellId > 0
+                ? position.CellId
+                : AppDataContextHardcode.DefaultSpawnCellId,
+            position?.Direction > 0
+                ? position.Direction
+                : AppDataContextHardcode.DefaultSpawnDirection,
+            AppDataContextHardcode.DefaultSpawnSubAreaId);
+    }
+
     private static bool IsValidCharacterName(string value)
     {
         if (string.IsNullOrWhiteSpace(value) || value.Length is < 3 or > 20)

@@ -260,7 +260,25 @@ public sealed class GameServerHostedService : BackgroundService
                                 continue;
                             }
 
-                            if (TryHandleCharacterSelection(packet, state, connectionId))
+                            if (await TryHandleCharacterSelectionAsync(
+                                    packet,
+                                    state,
+                                    characterDirectoryService,
+                                    stream,
+                                    connectionId,
+                                    remoteEndPoint,
+                                    stoppingToken))
+                            {
+                                continue;
+                            }
+
+                            if (await TryHandleMapInformationsRequestAsync(
+                                    packet,
+                                    state,
+                                    stream,
+                                    connectionId,
+                                    remoteEndPoint,
+                                    stoppingToken))
                             {
                                 continue;
                             }
@@ -407,10 +425,14 @@ public sealed class GameServerHostedService : BackgroundService
         return true;
     }
 
-    private bool TryHandleCharacterSelection(
+    private async Task<bool> TryHandleCharacterSelectionAsync(
         DofusPacket packet,
         GameConnectionState state,
-        string connectionId)
+        ICharacterDirectoryService characterDirectoryService,
+        NetworkStream stream,
+        string connectionId,
+        string remoteEndPoint,
+        CancellationToken cancellationToken)
     {
         if (state.Account is null ||
             state.KnownCharacterIds.Count == 0 ||
@@ -419,15 +441,105 @@ public sealed class GameServerHostedService : BackgroundService
             return false;
         }
 
+        var selectionContext = await characterDirectoryService.GetSelectionContextAsync(
+            state.Account.Id,
+            _serverOptions.GameServerId,
+            characterId,
+            cancellationToken);
+
+        if (selectionContext is null)
+        {
+            _logger.LogWarning(
+                "CharacterSelection rejected because the character context was not found. ConnectionId={ConnectionId} MessageId={MessageId} AccountId={AccountId} CharacterId={CharacterId}",
+                connectionId,
+                packet.MessageId,
+                state.Account.Id,
+                characterId);
+            return false;
+        }
+
         state.SelectedCharacterId = characterId;
+        state.SelectedCharacter = selectionContext;
 
         _logger.LogInformation(
-            "CharacterSelection received. ConnectionId={ConnectionId} MessageId={MessageId} AccountId={AccountId} CharacterId={CharacterId} WorldBootstrapImplemented={WorldBootstrapImplemented}",
+            "CharacterSelection received. ConnectionId={ConnectionId} MessageId={MessageId} AccountId={AccountId} CharacterId={CharacterId} MapId={MapId}",
             connectionId,
             packet.MessageId,
             state.Account.Id,
             characterId,
-            false);
+            selectionContext.MapId);
+
+        var bootstrapPackets = new[]
+        {
+            LegacyDofus210Messages.CreateCharacterSelectedSuccessPacket(selectionContext),
+            LegacyDofus210Messages.CreateGameContextCreatePacket(),
+            LegacyDofus210Messages.CreateCharacterStatsListPacket(selectionContext),
+            LegacyDofus210Messages.CreateCurrentMapPacket(selectionContext.MapId),
+            LegacyDofus210Messages.CreateBasicTimePacket(DateTimeOffset.Now),
+            LegacyDofus210Messages.CreateBasicNoOperationPacket()
+        };
+
+        foreach (var payload in bootstrapPackets)
+        {
+            await SendPayloadAsync(
+                stream,
+                connectionId,
+                remoteEndPoint,
+                payload,
+                cancellationToken);
+        }
+
+        return true;
+    }
+
+    private async Task<bool> TryHandleMapInformationsRequestAsync(
+        DofusPacket packet,
+        GameConnectionState state,
+        NetworkStream stream,
+        string connectionId,
+        string remoteEndPoint,
+        CancellationToken cancellationToken)
+    {
+        if (state.SelectedCharacter is null ||
+            packet.MessageId != DofusMessageIds.MapInformationsRequest)
+        {
+            return false;
+        }
+
+        if (packet.Payload.Length != 0 &&
+            LegacyDofus210Messages.TryReadMapInformationsRequest(packet.Payload, out var requestedMapId) &&
+            requestedMapId > 0 &&
+            requestedMapId != state.SelectedCharacter.MapId)
+        {
+            _logger.LogWarning(
+                "MapInformationsRequest received for a different map. ConnectionId={ConnectionId} RequestedMapId={RequestedMapId} SelectedMapId={SelectedMapId}",
+                connectionId,
+                requestedMapId,
+                state.SelectedCharacter.MapId);
+        }
+
+        _logger.LogInformation(
+            "MapInformationsRequest received. ConnectionId={ConnectionId} CharacterId={CharacterId} MapId={MapId}",
+            connectionId,
+            state.SelectedCharacter.Character.Id,
+            state.SelectedCharacter.MapId);
+
+        var mapPackets = new[]
+        {
+            LegacyDofus210Messages.CreateMapComplementaryInformationsDataPacket(state.SelectedCharacter),
+            LegacyDofus210Messages.CreateMapFightCountPacket(),
+            LegacyDofus210Messages.CreateBasicNoOperationPacket()
+        };
+
+        foreach (var payload in mapPackets)
+        {
+            await SendPayloadAsync(
+                stream,
+                connectionId,
+                remoteEndPoint,
+                payload,
+                cancellationToken);
+        }
 
         return true;
     }
@@ -447,6 +559,7 @@ public sealed class GameServerHostedService : BackgroundService
         }
 
         return packet.MessageId == CharacterCreationRequestModernMessageId ||
+               packet.MessageId == DofusMessageIds.CharacterCreationRequest ||
                LooksLikeCharacterCreationRequest(request);
     }
 
@@ -463,6 +576,7 @@ public sealed class GameServerHostedService : BackgroundService
         }
 
         return packet.MessageId == CharacterSelectionModernMessageId ||
+               packet.MessageId == DofusMessageIds.CharacterSelection ||
                knownCharacterIds.Contains(characterId);
     }
 
@@ -508,6 +622,8 @@ public sealed class GameServerHostedService : BackgroundService
         public AuthenticatedAccount? Account { get; set; }
 
         public long? SelectedCharacterId { get; set; }
+
+        public CharacterSelectionContext? SelectedCharacter { get; set; }
 
         public HashSet<long> KnownCharacterIds { get; } = [];
 

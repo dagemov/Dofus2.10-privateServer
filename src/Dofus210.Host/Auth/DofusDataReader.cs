@@ -50,6 +50,14 @@ public sealed class DofusDataReader
         return value;
     }
 
+    public double ReadDouble()
+    {
+        EnsureAvailable(sizeof(long));
+        var value = BinaryPrimitives.ReadInt64BigEndian(_buffer.AsSpan(_offset, sizeof(long)));
+        _offset += sizeof(long);
+        return BitConverter.Int64BitsToDouble(value);
+    }
+
     public string ReadUtf()
     {
         var byteLength = ReadUnsignedShort();

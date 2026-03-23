@@ -1,8 +1,8 @@
 $ErrorActionPreference = 'Stop'
 
 $project = 'C:\Users\Hombr\source\repos\Dofus2.10\src\Dofus210.Host\Dofus210.Host.csproj'
-$outLogPath = 'C:\Users\Hombr\source\repos\Dofus2.10\runtime\host-character-validation.out.log'
-$errLogPath = 'C:\Users\Hombr\source\repos\Dofus2.10\runtime\host-character-validation.err.log'
+$outLogPath = 'C:\Users\Hombr\source\repos\Dofus2.10\runtime\host-selection-validation.out.log'
+$errLogPath = 'C:\Users\Hombr\source\repos\Dofus2.10\runtime\host-selection-validation.err.log'
 
 if (Test-Path $outLogPath) {
     Remove-Item $outLogPath -Force
@@ -22,7 +22,7 @@ $hostProcess = Start-Process dotnet `
 Start-Sleep -Seconds 8
 
 try {
-    & 'C:\Users\Hombr\source\repos\Dofus2.10\tools\Diagnostics\Test-DofusCharacterCreationFlow.ps1'
+    & 'C:\Users\Hombr\source\repos\Dofus2.10\tools\Diagnostics\Test-DofusCharacterSelectionFlow.ps1'
 }
 finally {
     if ($hostProcess -and -not $hostProcess.HasExited) {
@@ -32,10 +32,10 @@ finally {
 
 'OUT:'
 if (Test-Path $outLogPath) {
-    Get-Content -Path $outLogPath | Select-Object -Last 20
+    Get-Content -Path $outLogPath | Select-Object -Last 30
 }
 
 'ERR:'
 if (Test-Path $errLogPath) {
-    Get-Content -Path $errLogPath | Select-Object -Last 20
+    Get-Content -Path $errLogPath | Select-Object -Last 30
 }
