@@ -250,10 +250,62 @@ function Parse-SelectedServerData {
     }
 }
 
-function New-ServerSelectionPayload {
-    param([byte]$ServerId)
+function Parse-ServersListPayload {
+    param([byte[]]$Payload)
 
-    return [byte[]]@($ServerId)
+    $offset = 0
+    $serversCount = ((([int]$Payload[$offset]) -shl 8) -bor ([int]$Payload[$offset + 1]))
+    $offset += 2
+    $servers = @()
+
+    for ($index = 0; $index -lt $serversCount; $index++) {
+        $flags = [int]$Payload[$offset]
+        $offset += 1
+        $serverId = Read-VarIntFromBytes -Bytes $Payload -Offset ([ref]$offset)
+        $type = [int]$Payload[$offset]
+        $offset += 1
+        $status = [int]$Payload[$offset]
+        $offset += 1
+        $completion = [int]$Payload[$offset]
+        $offset += 1
+        $charactersCount = [int]$Payload[$offset]
+        $offset += 1
+        $charactersSlots = [int]$Payload[$offset]
+        $offset += 1
+        $offset += 8
+
+        $servers += [pscustomobject]@{
+            Flags = $flags
+            ServerId = $serverId
+            Type = $type
+            Status = $status
+            Completion = $completion
+            CharactersCount = $charactersCount
+            CharactersSlots = $charactersSlots
+        }
+    }
+
+    $canCreateNewCharacter = $Payload[$offset] -ne 0
+
+    [pscustomobject]@{
+        Servers = $servers
+        CanCreateNewCharacter = $canCreateNewCharacter
+    }
+}
+
+function New-ServerSelectionPayload {
+    param([int]$ServerId)
+
+    $payload = New-Object System.Collections.Generic.List[byte]
+    $currentValue = [uint32]$ServerId
+
+    while ($currentValue -ge 0x80) {
+        $payload.Add([byte](($currentValue -band 0x7F) -bor 0x80))
+        $currentValue = $currentValue -shr 7
+    }
+
+    $payload.Add([byte]$currentValue)
+    return $payload.ToArray()
 }
 
 function New-AuthenticationTicketPayload {
@@ -301,10 +353,21 @@ try {
         "RESP mid={0} len={1} hex={2}" -f $packet.MessageId, $packet.PayloadLength, $packet.Hex
 
         if ($packet.MessageId -eq 30) {
-            $selectionPayload = New-ServerSelectionPayload -ServerId 1
+            $serversList = Parse-ServersListPayload -Payload $packet.Payload
+            $selectionTarget = $serversList.Servers |
+                Where-Object { $_.CharactersCount -gt 0 } |
+                Select-Object -First 1
+
+            if ($null -eq $selectionTarget) {
+                $selectionTarget = $serversList.Servers | Select-Object -First 1
+            }
+
+            "AUTH servers: {0}" -f (($serversList.Servers | ForEach-Object { "id=$($_.ServerId)/chars=$($_.CharactersCount)/slots=$($_.CharactersSlots)/flags=$($_.Flags)" }) -join ', ')
+
+            $selectionPayload = New-ServerSelectionPayload -ServerId $selectionTarget.ServerId
             $selectionPacket = Encode-Packet -MessageId 40 -Payload $selectionPayload
             $stream.Write($selectionPacket, 0, $selectionPacket.Length)
-            "AUTH sent server selection for server 1"
+            "AUTH sent server selection for server {0}" -f $selectionTarget.ServerId
             continue
         }
 

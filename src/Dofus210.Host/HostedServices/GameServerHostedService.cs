@@ -203,6 +203,7 @@ public sealed class GameServerHostedService : BackgroundService
                                 if (ticketAccepted)
                                 {
                                     state.Account = ticketSession.Account;
+                                    state.GameServerId = ticketSession.GameServerId;
                                 }
 
                                 await SendPayloadAsync(
@@ -229,7 +230,7 @@ public sealed class GameServerHostedService : BackgroundService
 
                                 var characters = await characterDirectoryService.ListForAccountAsync(
                                     state.Account.Id,
-                                    _serverOptions.GameServerId,
+                                    ResolveGameServerId(state),
                                     stoppingToken);
 
                                 _logger.LogInformation(
@@ -418,7 +419,7 @@ public sealed class GameServerHostedService : BackgroundService
 
         var creationResult = await characterDirectoryService.CreateAsync(
             state.Account.Id,
-            _serverOptions.GameServerId,
+            ResolveGameServerId(state),
             request,
             cancellationToken);
 
@@ -446,7 +447,7 @@ public sealed class GameServerHostedService : BackgroundService
 
         var characters = await characterDirectoryService.ListForAccountAsync(
             state.Account.Id,
-            _serverOptions.GameServerId,
+            ResolveGameServerId(state),
             cancellationToken);
 
         await SendCharactersListAsync(
@@ -478,7 +479,7 @@ public sealed class GameServerHostedService : BackgroundService
 
         var selectionContext = await characterDirectoryService.GetSelectionContextAsync(
             state.Account.Id,
-            _serverOptions.GameServerId,
+            ResolveGameServerId(state),
             characterId,
             cancellationToken);
 
@@ -678,7 +679,7 @@ public sealed class GameServerHostedService : BackgroundService
 
         var updatedContext = await characterDirectoryService.UpdatePositionAsync(
             state.Account.Id,
-            _serverOptions.GameServerId,
+            ResolveGameServerId(state),
             state.SelectedCharacter.Character.Id,
             state.SelectedCharacter.MapId,
             destinationCellId,
@@ -844,6 +845,11 @@ public sealed class GameServerHostedService : BackgroundService
         });
     }
 
+    private short ResolveGameServerId(GameConnectionState state)
+    {
+        return state.GameServerId ?? _serverOptions.GameServerId;
+    }
+
     private string ResolveTranscriptPath()
     {
         if (Path.IsPathRooted(_serverOptions.GameTranscriptDirectory))
@@ -861,6 +867,8 @@ public sealed class GameServerHostedService : BackgroundService
     private sealed class GameConnectionState
     {
         public AuthenticatedAccount? Account { get; set; }
+
+        public short? GameServerId { get; set; }
 
         public long? SelectedCharacterId { get; set; }
 
