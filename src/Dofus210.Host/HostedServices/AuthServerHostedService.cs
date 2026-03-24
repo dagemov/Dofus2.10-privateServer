@@ -199,6 +199,14 @@ public sealed class AuthServerHostedService : BackgroundService
                                 accountDirectoryService,
                                 gameServerDirectoryService,
                                 stoppingToken);
+
+                            if (state.CloseAfterCurrentPacket)
+                            {
+                                _logger.LogInformation(
+                                    "Auth session closing after server handoff. ConnectionId={ConnectionId}",
+                                    connectionId);
+                                return;
+                            }
                         }
                     }
                 }
@@ -527,6 +535,8 @@ public sealed class AuthServerHostedService : BackgroundService
                 connectionId,
                 requestedServerId);
 
+            state.CloseAfterCurrentPacket = true;
+
             return;
         }
 
@@ -549,6 +559,8 @@ public sealed class AuthServerHostedService : BackgroundService
             ticketSession.Ticket,
             selectedServer.Address,
             selectedServer.Port);
+
+        state.CloseAfterCurrentPacket = true;
     }
 
     private static bool ContainsPolicyFileRequest(string asciiPayload)
@@ -715,5 +727,7 @@ public sealed class AuthServerHostedService : BackgroundService
         public string ClientKey { get; set; } = string.Empty;
 
         public AuthenticatedAccount? Account { get; set; }
+
+        public bool CloseAfterCurrentPacket { get; set; }
     }
 }
