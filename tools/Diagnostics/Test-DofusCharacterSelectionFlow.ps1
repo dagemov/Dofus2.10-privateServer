@@ -570,11 +570,23 @@ try {
         $gameStream.Write($selectionPacket, 0, $selectionPacket.Length)
 
         $bootstrapPackets = @()
-        for ($index = 0; $index -lt 14; $index++) {
-            $bootstrapPackets += (Read-Packet -Stream $gameStream)
+        $currentMapPacket = $null
+        $seenCurrentMap = $false
+        for ($index = 0; $index -lt 24; $index++) {
+            $packet = Read-Packet -Stream $gameStream
+            $bootstrapPackets += $packet
+
+            if ($packet.MessageId -eq 220) {
+                $currentMapPacket = $packet
+                $seenCurrentMap = $true
+                continue
+            }
+
+            if ($seenCurrentMap -and $packet.MessageId -eq 176) {
+                break
+            }
         }
 
-        $currentMapPacket = $bootstrapPackets | Where-Object { $_.MessageId -eq 220 } | Select-Object -First 1
         if ($null -eq $currentMapPacket) {
             throw 'CurrentMap packet was not received after character selection.'
         }

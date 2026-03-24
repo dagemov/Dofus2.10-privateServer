@@ -546,6 +546,7 @@ public sealed class GameServerHostedService : BackgroundService
             LegacyDofus210Messages.CreateCharacterSelectedSuccessPacket(selectionContext),
             LegacyDofus210Messages.CreateGameContextCreatePacket(),
             LegacyDofus210Messages.CreateCharacterStatsListPacket(selectionContext),
+            LegacyDofus210Messages.CreateCharacterCapabilitiesPacket(),
             LegacyDofus210Messages.CreateSetCharacterRestrictionsPacket(selectionContext),
             LegacyDofus210Messages.CreateInventoryContentPacket(selectionContext),
             LegacyDofus210Messages.CreateInventoryWeightPacket(),
@@ -554,7 +555,9 @@ public sealed class GameServerHostedService : BackgroundService
             LegacyDofus210Messages.CreateShortcutBarContentPacket(1),
             LegacyDofus210Messages.CreateEmoteListPacket(),
             LegacyDofus210Messages.CreateLifePointsRegenEndPacket(selectionContext),
+            LegacyDofus210Messages.CreatePlayerLifeStatusPacket(),
             LegacyDofus210Messages.CreateCurrentMapPacket(selectionContext.MapId),
+            LegacyDofus210Messages.CreateBasicDatePacket(DateTimeOffset.Now),
             LegacyDofus210Messages.CreateBasicTimePacket(DateTimeOffset.Now),
             LegacyDofus210Messages.CreateBasicNoOperationPacket()
         };

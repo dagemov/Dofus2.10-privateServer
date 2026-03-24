@@ -601,6 +601,14 @@ public static class LegacyDofus210Messages
         return DofusPacketCodec.Encode(DofusMessageIds.SetCharacterRestrictions, writer.ToArray());
     }
 
+    public static byte[] CreateCharacterCapabilitiesPacket(int guildEmblemSymbolCategories = 0)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteVarInt(guildEmblemSymbolCategories);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.CharacterCapabilities, writer.ToArray());
+    }
+
     public static byte[] CreateInventoryContentPacket(CharacterSelectionContext context)
     {
         using var writer = new DofusDataWriter();
@@ -654,6 +662,25 @@ public static class LegacyDofus210Messages
         writer.WriteVarInt(0);
 
         return DofusPacketCodec.Encode(DofusMessageIds.LifePointsRegenEnd, writer.ToArray());
+    }
+
+    public static byte[] CreatePlayerLifeStatusPacket(byte state = 0, long phenixMapId = 0)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteByte(state);
+        writer.WriteDouble(phenixMapId);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.GameRolePlayPlayerLifeStatus, writer.ToArray());
+    }
+
+    public static byte[] CreateBasicDatePacket(DateTimeOffset timestamp)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteByte((byte)timestamp.Day);
+        writer.WriteByte((byte)timestamp.Month);
+        writer.WriteShort((short)timestamp.Year);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.BasicDate, writer.ToArray());
     }
 
     public static byte[] CreateBasicTimePacket(DateTimeOffset timestamp)
