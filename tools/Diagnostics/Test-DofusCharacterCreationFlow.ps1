@@ -342,8 +342,11 @@ try {
 
     try {
         $gameStream = $gameClient.GetStream()
+        $firstGamePacket = Read-Packet -Stream $gameStream
 
-        [void](Read-Packet -Stream $gameStream)
+        if ($firstGamePacket.MessageId -eq 1) {
+            [void](Read-Packet -Stream $gameStream)
+        }
 
         $ticketPayload = New-AuthenticationTicketPayload -Language 'es' -Ticket $selectedServerData.Ticket
         $ticketPacket = Encode-Packet -MessageId 110 -Payload $ticketPayload

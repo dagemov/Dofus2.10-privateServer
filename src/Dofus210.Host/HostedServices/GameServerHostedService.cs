@@ -166,6 +166,7 @@ public sealed class GameServerHostedService : BackgroundService
                                 return;
                             }
 
+                            await RecordPacketAsync(connectionId, remoteEndPoint, "IN", initialChunk);
                             packetBuffer.Append(initialChunk);
                         }
                     }
@@ -177,7 +178,23 @@ public sealed class GameServerHostedService : BackgroundService
                         stream,
                         connectionId,
                         remoteEndPoint,
+                        LegacyDofus210Messages.CreateProtocolRequiredPacket(_serverOptions.AuthRequiredVersion),
+                        stoppingToken);
+
+                    await SendPayloadAsync(
+                        stream,
+                        connectionId,
+                        remoteEndPoint,
                         LegacyDofus210Messages.CreateHelloGamePacket(),
+                        stoppingToken);
+
+                    await ProcessBufferedPacketsAsync(
+                        packetBuffer,
+                        state,
+                        characterDirectoryService,
+                        stream,
+                        connectionId,
+                        remoteEndPoint,
                         stoppingToken);
 
                     while (!timeoutCts.IsCancellationRequested)
@@ -197,170 +214,14 @@ public sealed class GameServerHostedService : BackgroundService
                         }
 
                         packetBuffer.Append(buffer.AsSpan(0, bytesRead));
-
-                        while (packetBuffer.TryReadPacket(out var packetBytes))
-                        {
-                            await RecordPacketAsync(connectionId, remoteEndPoint, "IN", packetBytes);
-
-                            if (!DofusPacketCodec.TryDecode(packetBytes, out var packet) || packet is null)
-                            {
-                                _logger.LogWarning(
-                                    "Unable to decode framed game packet. ConnectionId={ConnectionId} Hex={Hex}",
-                                    connectionId,
-                                    Convert.ToHexString(packetBytes));
-                                continue;
-                            }
-
-                            if (packet.MessageId == DofusMessageIds.AuthenticationTicket)
-                            {
-                                var authTicket = LegacyDofus210Messages.ReadAuthenticationTicket(packet.Payload);
-                                var ticketAccepted = _authTicketStore.TryConsume(authTicket.Ticket, out var ticketSession);
-
-                                if (!ticketAccepted)
-                                {
-                                    ticketAccepted = _authTicketStore.TryConsumeSingleOutstanding(out ticketSession);
-
-                                    if (ticketAccepted)
-                                    {
-                                        _logger.LogWarning(
-                                            "Game ticket fallback used. ConnectionId={ConnectionId} ProvidedTicket={Ticket}",
-                                            connectionId,
-                                            authTicket.Ticket);
-                                    }
-                                }
-
-                                _logger.LogInformation(
-                                    "AuthenticationTicket received. ConnectionId={ConnectionId} Lang={Lang} Ticket={Ticket} Accepted={Accepted}",
-                                    connectionId,
-                                    authTicket.Language,
-                                    authTicket.Ticket,
-                                    ticketAccepted);
-
-                                if (ticketAccepted)
-                                {
-                                    state.Account = ticketSession.Account;
-                                    state.GameServerId = ticketSession.GameServerId;
-                                }
-
-                                await SendPayloadAsync(
-                                    stream,
-                                    connectionId,
-                                    remoteEndPoint,
-                                    ticketAccepted
-                                        ? LegacyDofus210Messages.CreateAuthenticationTicketAcceptedPacket()
-                                        : LegacyDofus210Messages.CreateAuthenticationTicketRefusedPacket(),
-                                    stoppingToken);
-
-                                continue;
-                            }
-
-                            if (IsCharactersListRequestMessage(packet.MessageId))
-                            {
-                                if (state.Account is null)
-                                {
-                                    _logger.LogWarning(
-                                        "CharactersListRequest received before game authentication. ConnectionId={ConnectionId}",
-                                        connectionId);
-                                    continue;
-                                }
-
-                                var characters = await characterDirectoryService.ListForAccountAsync(
-                                    state.Account.Id,
-                                    ResolveGameServerId(state),
-                                    stoppingToken);
-
-                                _logger.LogInformation(
-                                    "CharactersListRequest received. ConnectionId={ConnectionId} AccountId={AccountId} CharacterCount={CharacterCount}",
-                                    connectionId,
-                                    state.Account.Id,
-                                    characters.Count);
-
-                                await SendCharactersListAsync(
-                                    stream,
-                                    connectionId,
-                                    remoteEndPoint,
-                                    state,
-                                    characters,
-                                    stoppingToken);
-
-                                continue;
-                            }
-
-                            if (await TryHandleCharacterCreationAsync(
-                                    packet,
-                                    state,
-                                    characterDirectoryService,
-                                    stream,
-                                    connectionId,
-                                    remoteEndPoint,
-                                    stoppingToken))
-                            {
-                                continue;
-                            }
-
-                            if (await TryHandleCharacterSelectionAsync(
-                                    packet,
-                                    state,
-                                    characterDirectoryService,
-                                    stream,
-                                    connectionId,
-                                    remoteEndPoint,
-                                    stoppingToken))
-                            {
-                                continue;
-                            }
-
-                            if (await TryHandleMapInformationsRequestAsync(
-                                    packet,
-                                    state,
-                                    stream,
-                                    connectionId,
-                                    remoteEndPoint,
-                                    stoppingToken))
-                            {
-                                continue;
-                            }
-
-                            if (await TryHandleGameContextReadyAsync(
-                                    packet,
-                                    state,
-                                    stream,
-                                    connectionId,
-                                    remoteEndPoint,
-                                    stoppingToken))
-                            {
-                                continue;
-                            }
-
-                            if (await TryHandleCharacterLoadingCompleteAsync(
-                                    packet,
-                                    state,
-                                    stream,
-                                    connectionId,
-                                    remoteEndPoint,
-                                    stoppingToken))
-                            {
-                                continue;
-                            }
-
-                            if (await TryHandleMapMovementRequestAsync(
-                                    packet,
-                                    state,
-                                    characterDirectoryService,
-                                    stream,
-                                    connectionId,
-                                    remoteEndPoint,
-                                    stoppingToken))
-                            {
-                                continue;
-                            }
-
-                            _logger.LogInformation(
-                                "Unhandled game message. ConnectionId={ConnectionId} MessageId={MessageId} Hex={Hex}",
-                                connectionId,
-                                packet.MessageId,
-                                Convert.ToHexString(packet.Payload));
-                        }
+                        await ProcessBufferedPacketsAsync(
+                            packetBuffer,
+                            state,
+                            characterDirectoryService,
+                            stream,
+                            connectionId,
+                            remoteEndPoint,
+                            stoppingToken);
                     }
                 }
                 finally
@@ -417,6 +278,180 @@ public sealed class GameServerHostedService : BackgroundService
                 remoteEndPoint,
                 payload.Length,
                 hexPayload));
+    }
+
+    private async Task ProcessBufferedPacketsAsync(
+        DofusPacketBuffer packetBuffer,
+        GameConnectionState state,
+        ICharacterDirectoryService characterDirectoryService,
+        NetworkStream stream,
+        string connectionId,
+        string remoteEndPoint,
+        CancellationToken stoppingToken)
+    {
+        while (packetBuffer.TryReadPacket(out var packetBytes))
+        {
+            await RecordPacketAsync(connectionId, remoteEndPoint, "IN", packetBytes);
+
+            if (!DofusPacketCodec.TryDecode(packetBytes, out var packet) || packet is null)
+            {
+                _logger.LogWarning(
+                    "Unable to decode framed game packet. ConnectionId={ConnectionId} Hex={Hex}",
+                    connectionId,
+                    Convert.ToHexString(packetBytes));
+                continue;
+            }
+
+            if (packet.MessageId == DofusMessageIds.AuthenticationTicket)
+            {
+                var authTicket = LegacyDofus210Messages.ReadAuthenticationTicket(packet.Payload);
+                var ticketAccepted = _authTicketStore.TryConsume(authTicket.Ticket, out var ticketSession);
+
+                if (!ticketAccepted)
+                {
+                    ticketAccepted = _authTicketStore.TryConsumeSingleOutstanding(out ticketSession);
+
+                    if (ticketAccepted)
+                    {
+                        _logger.LogWarning(
+                            "Game ticket fallback used. ConnectionId={ConnectionId} ProvidedTicket={Ticket}",
+                            connectionId,
+                            authTicket.Ticket);
+                    }
+                }
+
+                _logger.LogInformation(
+                    "AuthenticationTicket received. ConnectionId={ConnectionId} Lang={Lang} Ticket={Ticket} Accepted={Accepted}",
+                    connectionId,
+                    authTicket.Language,
+                    authTicket.Ticket,
+                    ticketAccepted);
+
+                if (ticketAccepted)
+                {
+                    state.Account = ticketSession.Account;
+                    state.GameServerId = ticketSession.GameServerId;
+                }
+
+                await SendPayloadAsync(
+                    stream,
+                    connectionId,
+                    remoteEndPoint,
+                    ticketAccepted
+                        ? LegacyDofus210Messages.CreateAuthenticationTicketAcceptedPacket()
+                        : LegacyDofus210Messages.CreateAuthenticationTicketRefusedPacket(),
+                    stoppingToken);
+
+                continue;
+            }
+
+            if (IsCharactersListRequestMessage(packet.MessageId))
+            {
+                if (state.Account is null)
+                {
+                    _logger.LogWarning(
+                        "CharactersListRequest received before game authentication. ConnectionId={ConnectionId}",
+                        connectionId);
+                    continue;
+                }
+
+                var characters = await characterDirectoryService.ListForAccountAsync(
+                    state.Account.Id,
+                    ResolveGameServerId(state),
+                    stoppingToken);
+
+                _logger.LogInformation(
+                    "CharactersListRequest received. ConnectionId={ConnectionId} AccountId={AccountId} CharacterCount={CharacterCount}",
+                    connectionId,
+                    state.Account.Id,
+                    characters.Count);
+
+                await SendCharactersListAsync(
+                    stream,
+                    connectionId,
+                    remoteEndPoint,
+                    state,
+                    characters,
+                    stoppingToken);
+
+                continue;
+            }
+
+            if (await TryHandleCharacterCreationAsync(
+                    packet,
+                    state,
+                    characterDirectoryService,
+                    stream,
+                    connectionId,
+                    remoteEndPoint,
+                    stoppingToken))
+            {
+                continue;
+            }
+
+            if (await TryHandleCharacterSelectionAsync(
+                    packet,
+                    state,
+                    characterDirectoryService,
+                    stream,
+                    connectionId,
+                    remoteEndPoint,
+                    stoppingToken))
+            {
+                continue;
+            }
+
+            if (await TryHandleMapInformationsRequestAsync(
+                    packet,
+                    state,
+                    stream,
+                    connectionId,
+                    remoteEndPoint,
+                    stoppingToken))
+            {
+                continue;
+            }
+
+            if (await TryHandleGameContextReadyAsync(
+                    packet,
+                    state,
+                    stream,
+                    connectionId,
+                    remoteEndPoint,
+                    stoppingToken))
+            {
+                continue;
+            }
+
+            if (await TryHandleCharacterLoadingCompleteAsync(
+                    packet,
+                    state,
+                    stream,
+                    connectionId,
+                    remoteEndPoint,
+                    stoppingToken))
+            {
+                continue;
+            }
+
+            if (await TryHandleMapMovementRequestAsync(
+                    packet,
+                    state,
+                    characterDirectoryService,
+                    stream,
+                    connectionId,
+                    remoteEndPoint,
+                    stoppingToken))
+            {
+                continue;
+            }
+
+            _logger.LogInformation(
+                "Unhandled game message. ConnectionId={ConnectionId} MessageId={MessageId} Hex={Hex}",
+                connectionId,
+                packet.MessageId,
+                Convert.ToHexString(packet.Payload));
+        }
     }
 
     private async Task SendCharactersListAsync(

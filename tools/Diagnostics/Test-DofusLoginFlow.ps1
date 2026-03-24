@@ -410,8 +410,16 @@ try {
 
     try {
         $gameStream = $gameClient.GetStream()
-        $helloGame = Read-Packet -Stream $gameStream
-        "GAME mid={0} len={1} hex={2}" -f $helloGame.MessageId, $helloGame.PayloadLength, $helloGame.Hex
+        $firstGamePacket = Read-Packet -Stream $gameStream
+        "GAME mid={0} len={1} hex={2}" -f $firstGamePacket.MessageId, $firstGamePacket.PayloadLength, $firstGamePacket.Hex
+
+        if ($firstGamePacket.MessageId -eq 1) {
+            $helloGame = Read-Packet -Stream $gameStream
+            "GAME mid={0} len={1} hex={2}" -f $helloGame.MessageId, $helloGame.PayloadLength, $helloGame.Hex
+        }
+        else {
+            $helloGame = $firstGamePacket
+        }
 
         $ticketPayload = New-AuthenticationTicketPayload -Language 'es' -Ticket $selectedServerData.Ticket
         $ticketPacket = Encode-Packet -MessageId 110 -Payload $ticketPayload

@@ -49,6 +49,14 @@ public static class LegacyDofus210Messages
     private const short DefaultEnergyPoints = 10_000;
     private const short DefaultProspecting = 100;
 
+    public static byte[] CreateProtocolRequiredPacket(string requiredVersion)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteUtf(requiredVersion);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.ProtocolRequired, writer.ToArray());
+    }
+
     public static bool TryReadIdentification(
         ReadOnlySpan<byte> payload,
         out LegacyIdentificationMessage? message)
