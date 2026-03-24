@@ -44,6 +44,10 @@ public static class LegacyDofus210Messages
     private const ushort GameRolePlayCharacterInformationsTypeId = 2594;
     private const ushort HumanInformationsTypeId = 6710;
     private const ushort EntityDispositionInformationsTypeId = 7343;
+    private const short DefaultActionPoints = 6;
+    private const short DefaultMovementPoints = 3;
+    private const short DefaultEnergyPoints = 10_000;
+    private const short DefaultProspecting = 100;
 
     public static bool TryReadIdentification(
         ReadOnlySpan<byte> payload,
@@ -486,17 +490,94 @@ public static class LegacyDofus210Messages
     {
         using var writer = new DofusDataWriter();
         var experienceNextLevelFloor = Math.Max(context.Experience + 1000, 1000);
+        var lifePoints = Math.Max(context.LifePoints, 1);
+        var maxLifePoints = Math.Max(context.MaxLifePoints, lifePoints);
+        var vitality = Math.Max(maxLifePoints - 50, 0);
+        var initiative = Math.Max(maxLifePoints * 2, 100);
 
         writer.WriteVarLong(context.Experience);
         writer.WriteVarLong(0);
         writer.WriteVarLong(experienceNextLevelFloor);
         writer.WriteVarLong(0);
         writer.WriteVarLong(context.Kamas);
-
         WriteActorExtendedAlignmentInformations(writer);
-
         writer.WriteVarShort(0);
-        writer.WriteUnsignedShort(0);
+        writer.WriteVarShort(0);
+        writer.WriteVarShort(0);
+        writer.WriteVarInt(lifePoints);
+        writer.WriteVarInt(maxLifePoints);
+        writer.WriteVarShort(DefaultEnergyPoints);
+        writer.WriteVarShort(DefaultEnergyPoints);
+        writer.WriteVarShort(DefaultActionPoints);
+        writer.WriteVarShort(DefaultMovementPoints);
+        WriteCharacterBaseCharacteristic(writer, initiative);
+        WriteCharacterBaseCharacteristic(writer, DefaultProspecting);
+        WriteCharacterBaseCharacteristic(writer, DefaultActionPoints);
+        WriteCharacterBaseCharacteristic(writer, DefaultMovementPoints);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer, vitality);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        writer.WriteVarShort(0);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
+        WriteCharacterBaseCharacteristic(writer);
         writer.WriteUnsignedShort(0);
         writer.WriteInt(0);
 
@@ -674,14 +755,26 @@ public static class LegacyDofus210Messages
 
     private static void WriteActorExtendedAlignmentInformations(DofusDataWriter writer)
     {
-        writer.WriteByte(0);
-        writer.WriteByte(0);
-        writer.WriteByte(0);
-        writer.WriteDouble(0);
+        WriteActorAlignmentInformations(writer);
         writer.WriteVarShort(0);
         writer.WriteVarShort(0);
         writer.WriteVarShort(0);
         writer.WriteByte(0);
+    }
+
+    private static void WriteCharacterBaseCharacteristic(
+        DofusDataWriter writer,
+        int baseValue = 0,
+        int additionalValue = 0,
+        int objectsAndMountBonus = 0,
+        int alignGiftBonus = 0,
+        int contextModif = 0)
+    {
+        writer.WriteVarShort(baseValue);
+        writer.WriteVarShort(additionalValue);
+        writer.WriteVarShort(objectsAndMountBonus);
+        writer.WriteVarShort(alignGiftBonus);
+        writer.WriteVarShort(contextModif);
     }
 
     private static void WriteGameRolePlayCharacterInformations(
