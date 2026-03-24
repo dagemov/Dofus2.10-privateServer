@@ -236,6 +236,20 @@ public sealed class GameServerHostedService : BackgroundService
                     connectionId,
                     _serverOptions.GameReceiveTimeoutMs);
             }
+            catch (IOException exception) when (IsExpectedRemoteDisconnect(exception))
+            {
+                _logger.LogInformation(
+                    "Game client disconnected abruptly. ConnectionId={ConnectionId} Message={Message}",
+                    connectionId,
+                    exception.Message);
+            }
+            catch (SocketException exception) when (IsExpectedRemoteDisconnect(exception))
+            {
+                _logger.LogInformation(
+                    "Game client socket disconnected abruptly. ConnectionId={ConnectionId} SocketError={SocketError}",
+                    connectionId,
+                    exception.SocketErrorCode);
+            }
             catch (Exception exception)
             {
                 _logger.LogError(exception, "Game session failed. ConnectionId={ConnectionId}", connectionId);
@@ -335,24 +349,7 @@ public sealed class GameServerHostedService : BackgroundService
 
                 if (ticketAccepted)
                 {
-                    var timestamp = DateTimeOffset.UtcNow;
-                    var approachPackets = new[]
-                    {
-                        LegacyDofus210Messages.CreateAuthenticationTicketAcceptedPacket(),
-                        LegacyDofus210Messages.CreateBasicTimePacket(timestamp),
-                        LegacyDofus210Messages.CreateBasicDatePacket(timestamp),
-                        LegacyDofus210Messages.CreateServerSettingsPacket(
-                            authTicket.Language,
-                            _serverOptions.ServerCommunityId,
-                            _serverOptions.GameServerType),
-                        LegacyDofus210Messages.CreateServerOptionalFeaturesPacket(3),
-                        LegacyDofus210Messages.CreateAccountCapabilitiesPacket(
-                            tutorialAvailable: false,
-                            breedsVisibleMask: 0x7FFF,
-                            breedsAvailableMask: 0x7FFF,
-                            status: 0),
-                        LegacyDofus210Messages.CreateTrustStatusPacket(true)
-                    };
+                    var approachPackets = BuildGameApproachPackets(authTicket.Language);
 
                     foreach (var payload in approachPackets)
                     {
@@ -377,12 +374,15 @@ public sealed class GameServerHostedService : BackgroundService
                         state.Account.Id,
                         characters.Count);
 
-                    await SendPayloadAsync(
-                        stream,
-                        connectionId,
-                        remoteEndPoint,
-                        LegacyDofus210Messages.CreateCharactersListPacket(characters),
-                        stoppingToken);
+                    if (ShouldPushCharactersListDuringApproach())
+                    {
+                        await SendPayloadAsync(
+                            stream,
+                            connectionId,
+                            remoteEndPoint,
+                            LegacyDofus210Messages.CreateCharactersListPacket(characters),
+                            stoppingToken);
+                    }
                 }
                 else
                 {
@@ -984,6 +984,70 @@ public sealed class GameServerHostedService : BackgroundService
         return state.GameServerId ?? _serverOptions.GameServerId;
     }
 
+    private IReadOnlyList<byte[]> BuildGameApproachPackets(string language)
+    {
+        var timestamp = DateTimeOffset.UtcNow;
+        var profile = (_serverOptions.GameApproachProfile ?? string.Empty).Trim();
+
+        if (profile.Equals("MinimalClassic", StringComparison.OrdinalIgnoreCase))
+        {
+            return
+            [
+                LegacyDofus210Messages.CreateAuthenticationTicketAcceptedPacket()
+            ];
+        }
+
+        if (profile.Equals("CompatibilityNoPushList", StringComparison.OrdinalIgnoreCase) ||
+            profile.Equals("CompatibilityPushList", StringComparison.OrdinalIgnoreCase))
+        {
+            return
+            [
+                LegacyDofus210Messages.CreateAuthenticationTicketAcceptedPacket(),
+                LegacyDofus210Messages.CreateBasicTimePacket(timestamp),
+                LegacyDofus210Messages.CreateBasicDatePacket(timestamp),
+                LegacyDofus210Messages.CreateServerSettingsPacket(
+                    language,
+                    _serverOptions.ServerCommunityId,
+                    _serverOptions.GameServerType),
+                LegacyDofus210Messages.CreateServerOptionalFeaturesPacket(3),
+                LegacyDofus210Messages.CreateAccountCapabilitiesPacket(
+                    tutorialAvailable: false,
+                    breedsVisibleMask: 0x7FFF,
+                    breedsAvailableMask: 0x7FFF,
+                    status: 0),
+                LegacyDofus210Messages.CreateTrustStatusPacket(true)
+            ];
+        }
+
+        _logger.LogWarning(
+            "Unknown GameApproachProfile '{Profile}'. Falling back to CompatibilityPushList.",
+            profile);
+
+        return
+        [
+            LegacyDofus210Messages.CreateAuthenticationTicketAcceptedPacket(),
+            LegacyDofus210Messages.CreateBasicTimePacket(timestamp),
+            LegacyDofus210Messages.CreateBasicDatePacket(timestamp),
+            LegacyDofus210Messages.CreateServerSettingsPacket(
+                language,
+                _serverOptions.ServerCommunityId,
+                _serverOptions.GameServerType),
+            LegacyDofus210Messages.CreateServerOptionalFeaturesPacket(3),
+            LegacyDofus210Messages.CreateAccountCapabilitiesPacket(
+                tutorialAvailable: false,
+                breedsVisibleMask: 0x7FFF,
+                breedsAvailableMask: 0x7FFF,
+                status: 0),
+            LegacyDofus210Messages.CreateTrustStatusPacket(true)
+        ];
+    }
+
+    private bool ShouldPushCharactersListDuringApproach()
+    {
+        return (_serverOptions.GameApproachProfile ?? string.Empty).Trim()
+            .Equals("CompatibilityPushList", StringComparison.OrdinalIgnoreCase);
+    }
+
     private string ResolveTranscriptPath()
     {
         if (Path.IsPathRooted(_serverOptions.GameTranscriptDirectory))
@@ -1001,6 +1065,16 @@ public sealed class GameServerHostedService : BackgroundService
     private static bool ContainsPolicyFileRequest(string asciiPayload)
     {
         return asciiPayload.Contains("policy-file-request", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsExpectedRemoteDisconnect(Exception exception)
+    {
+        return exception switch
+        {
+            IOException ioException when ioException.InnerException is SocketException socketException => IsExpectedRemoteDisconnect(socketException),
+            SocketException socketException => socketException.SocketErrorCode is SocketError.ConnectionReset or SocketError.ConnectionAborted,
+            _ => false
+        };
     }
 
     private static string ToSanitizedAscii(byte[] payload)

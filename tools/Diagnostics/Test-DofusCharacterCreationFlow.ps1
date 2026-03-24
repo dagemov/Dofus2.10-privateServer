@@ -105,6 +105,17 @@ function Read-Packet {
     }
 }
 
+function Try-ReadPacket {
+    param([System.Net.Sockets.NetworkStream]$Stream)
+
+    try {
+        return Read-Packet -Stream $Stream
+    }
+    catch [System.IO.IOException] {
+        return $null
+    }
+}
+
 function Add-Utf {
     param(
         [System.Collections.Generic.List[byte]]$Buffer,
@@ -352,11 +363,21 @@ try {
         $ticketPacket = Encode-Packet -MessageId 110 -Payload $ticketPayload
         $gameStream.Write($ticketPacket, 0, $ticketPacket.Length)
         $approachPackets = @()
-        for ($index = 0; $index -lt 8; $index++) {
-            $approachPackets += (Read-Packet -Stream $gameStream)
+        $beforeList = $null
+        for ($index = 0; $index -lt 16; $index++) {
+            $packet = Try-ReadPacket -Stream $gameStream
+            if ($null -eq $packet) {
+                break
+            }
+
+            if ($packet.MessageId -eq 151) {
+                $beforeList = $packet
+                break
+            }
+
+            $approachPackets += $packet
         }
 
-        $beforeList = $approachPackets | Where-Object { $_.MessageId -eq 151 } | Select-Object -First 1
         if ($null -eq $beforeList) {
             $charactersListRequest = Encode-Packet -MessageId 150 -Payload ([byte[]]::new(0))
             $gameStream.Write($charactersListRequest, 0, $charactersListRequest.Length)
@@ -368,12 +389,20 @@ try {
         $gameStream.Write($creationPacket, 0, $creationPacket.Length)
 
         $creationResult = Read-Packet -Stream $gameStream
-        $afterList = Read-Packet -Stream $gameStream
+        $afterList = $null
+        $resultCode = if ($creationResult.PayloadLength -gt 0) { [int]$creationResult.Payload[0] } else { -1 }
+
+        if ($resultCode -eq 0) {
+            $afterList = Read-Packet -Stream $gameStream
+        }
 
         $summary.Add("CharacterName=$characterName")
         $summary.Add("BeforeListMid=$($beforeList.MessageId) BeforeListLen=$($beforeList.PayloadLength)")
-        $summary.Add("CreationResultMid=$($creationResult.MessageId) CreationResultLen=$($creationResult.PayloadLength) ResultCode=$($creationResult.Payload[0])")
-        $summary.Add("AfterListMid=$($afterList.MessageId) AfterListLen=$($afterList.PayloadLength)")
+        $summary.Add("CreationResultMid=$($creationResult.MessageId) CreationResultLen=$($creationResult.PayloadLength) ResultCode=$resultCode")
+
+        if ($afterList) {
+            $summary.Add("AfterListMid=$($afterList.MessageId) AfterListLen=$($afterList.PayloadLength)")
+        }
     }
     finally {
         if ($gameStream) {

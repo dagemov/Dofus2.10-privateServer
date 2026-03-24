@@ -49,4 +49,6 @@ public sealed class ServerOptions
     public bool GameServerCanCreateNewCharacter { get; set; } = true;
 
     public int GameTicketTimeToLiveMinutes { get; set; } = 5;
+
+    public string GameApproachProfile { get; set; } = "CompatibilityPushList";
 }

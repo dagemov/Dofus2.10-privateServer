@@ -106,6 +106,17 @@ function Read-Packet {
     }
 }
 
+function Try-ReadPacket {
+    param([System.Net.Sockets.NetworkStream]$Stream)
+
+    try {
+        return Read-Packet -Stream $Stream
+    }
+    catch [System.IO.IOException] {
+        return $null
+    }
+}
+
 function Read-AvailablePacket {
     param([System.Net.Sockets.NetworkStream]$Stream)
 
@@ -426,15 +437,25 @@ try {
         $gameStream.Write($ticketPacket, 0, $ticketPacket.Length)
 
         $approachPackets = @()
-        for ($index = 0; $index -lt 8; $index++) {
-            $approachPackets += (Read-Packet -Stream $gameStream)
+        $charactersList = $null
+        for ($index = 0; $index -lt 16; $index++) {
+            $packet = Try-ReadPacket -Stream $gameStream
+            if ($null -eq $packet) {
+                break
+            }
+
+            if ($packet.MessageId -eq 151) {
+                $charactersList = $packet
+                break
+            }
+
+            $approachPackets += $packet
         }
 
         foreach ($packet in $approachPackets) {
             "GAME mid={0} len={1} hex={2}" -f $packet.MessageId, $packet.PayloadLength, $packet.Hex
         }
 
-        $charactersList = $approachPackets | Where-Object { $_.MessageId -eq 151 } | Select-Object -First 1
         if ($null -eq $charactersList) {
             $charactersListRequest = Encode-Packet -MessageId 150 -Payload ([byte[]]::new(0))
             $gameStream.Write($charactersListRequest, 0, $charactersListRequest.Length)

@@ -105,6 +105,17 @@ function Read-Packet {
     }
 }
 
+function Try-ReadPacket {
+    param([System.Net.Sockets.NetworkStream]$Stream)
+
+    try {
+        return Read-Packet -Stream $Stream
+    }
+    catch [System.IO.IOException] {
+        return $null
+    }
+}
+
 function Add-Utf {
     param(
         [System.Collections.Generic.List[byte]]$Buffer,
@@ -546,12 +557,22 @@ try {
         $ticketPacket = Encode-Packet -MessageId 110 -Payload $ticketPayload
         $gameStream.Write($ticketPacket, 0, $ticketPacket.Length)
         $approachPackets = @()
-        for ($index = 0; $index -lt 7; $index++) {
-            $approachPackets += (Read-Packet -Stream $gameStream)
+        $charactersListPacket = $null
+        for ($index = 0; $index -lt 16; $index++) {
+            $packet = Try-ReadPacket -Stream $gameStream
+            if ($null -eq $packet) {
+                break
+            }
+
+            if ($packet.MessageId -eq 151) {
+                $charactersListPacket = $packet
+                break
+            }
+
+            $approachPackets += $packet
         }
 
-        $charactersListPacket = Read-Packet -Stream $gameStream
-        if ($charactersListPacket.MessageId -ne 151) {
+        if ($null -eq $charactersListPacket) {
             $charactersListRequest = Encode-Packet -MessageId 150 -Payload ([byte[]]::new(0))
             $gameStream.Write($charactersListRequest, 0, $charactersListRequest.Length)
             $charactersListPacket = Read-Packet -Stream $gameStream
