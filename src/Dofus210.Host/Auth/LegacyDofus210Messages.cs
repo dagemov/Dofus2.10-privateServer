@@ -233,10 +233,12 @@ public static class LegacyDofus210Messages
 
                 if (reader.Remaining == 0)
                 {
+                    var normalizedTicket = NormalizePrefixedTicketString(ticket, out var normalizedPayload);
+
                     message = new LegacyAuthenticationTicketMessage(
                         language,
-                        ticket,
-                        Encoding.ASCII.GetBytes(ticket),
+                        normalizedTicket,
+                        normalizedPayload,
                         "UtfString");
 
                     return true;
@@ -1051,5 +1053,25 @@ public static class LegacyDofus210Messages
         }
 
         return Encoding.ASCII.GetString(payload);
+    }
+
+    private static string NormalizePrefixedTicketString(string ticket, out byte[] rawPayload)
+    {
+        rawPayload = Encoding.ASCII.GetBytes(ticket);
+
+        if (string.IsNullOrEmpty(ticket))
+        {
+            return ticket;
+        }
+
+        var prefixLength = (byte)ticket[0];
+
+        if (prefixLength == ticket.Length - 1 &&
+            ticket.AsSpan(1).ToArray().All(static character => character is >= '!' and <= '~'))
+        {
+            return ticket[1..];
+        }
+
+        return ticket;
     }
 }

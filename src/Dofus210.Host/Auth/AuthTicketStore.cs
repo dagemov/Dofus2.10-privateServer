@@ -7,6 +7,7 @@ namespace Dofus210.Host.Auth;
 
 public sealed class AuthTicketStore : IAuthTicketStore
 {
+    private const string TicketAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private readonly ConcurrentDictionary<string, AuthTicketSession> _sessions = new(StringComparer.Ordinal);
 
     public AuthTicketSession Issue(
@@ -15,7 +16,7 @@ public sealed class AuthTicketStore : IAuthTicketStore
         int timeToLiveMinutes,
         byte[]? ticketCipherKey = null)
     {
-        var ticket = Convert.ToBase64String(RandomNumberGenerator.GetBytes(12));
+        var ticket = CreateTicket();
         var issuedAtUtc = DateTimeOffset.UtcNow;
         var expiresAtUtc = issuedAtUtc.AddMinutes(timeToLiveMinutes);
         var session = new AuthTicketSession(
@@ -33,15 +34,12 @@ public sealed class AuthTicketStore : IAuthTicketStore
 
     private static byte[] CreateTicketPayload(string ticket, byte[]? ticketCipherKey)
     {
+        var payload = CreatePlainTicketPayload(ticket);
+
         if (ticketCipherKey is not { Length: 32 })
         {
-            return Encoding.ASCII.GetBytes(ticket);
+            return payload;
         }
-
-        var ticketBytes = Encoding.UTF8.GetBytes(ticket);
-        var payload = new byte[ticketBytes.Length + 1];
-        payload[0] = checked((byte)ticketBytes.Length);
-        Buffer.BlockCopy(ticketBytes, 0, payload, 1, ticketBytes.Length);
 
         using var aes = Aes.Create();
         aes.Key = ticketCipherKey;
@@ -51,6 +49,28 @@ public sealed class AuthTicketStore : IAuthTicketStore
 
         using var encryptor = aes.CreateEncryptor();
         return encryptor.TransformFinalBlock(payload, 0, payload.Length);
+    }
+
+    private static string CreateTicket()
+    {
+        Span<char> characters = stackalloc char[32];
+
+        for (var index = 0; index < characters.Length; index++)
+        {
+            var alphabetIndex = RandomNumberGenerator.GetInt32(TicketAlphabet.Length);
+            characters[index] = TicketAlphabet[alphabetIndex];
+        }
+
+        return new string(characters);
+    }
+
+    private static byte[] CreatePlainTicketPayload(string ticket)
+    {
+        var ticketBytes = Encoding.ASCII.GetBytes(ticket);
+        var payload = new byte[ticketBytes.Length + 1];
+        payload[0] = checked((byte)ticketBytes.Length);
+        Buffer.BlockCopy(ticketBytes, 0, payload, 1, ticketBytes.Length);
+        return payload;
     }
 
     public bool TryConsume(string ticket, out AuthTicketSession session)
