@@ -109,11 +109,28 @@ try {
         $ticketPayload = New-AuthenticationTicketPayload -Language 'es' -Ticket $selectedServerData.Ticket
         $ticketPacket = Encode-Packet -MessageId 110 -Payload $ticketPayload
         $gameStream.Write($ticketPacket, 0, $ticketPacket.Length)
-        [void](Read-Packet -Stream $gameStream)
+        $approachPackets = @()
+        $charactersListPacket = $null
+        for ($index = 0; $index -lt 16; $index++) {
+            $packet = Try-ReadPacket -Stream $gameStream
+            if ($null -eq $packet) {
+                break
+            }
 
-        $charactersListRequest = Encode-Packet -MessageId 150 -Payload ([byte[]]::new(0))
-        $gameStream.Write($charactersListRequest, 0, $charactersListRequest.Length)
-        $charactersListPacket = Read-Packet -Stream $gameStream
+            if ($packet.MessageId -eq 151) {
+                $charactersListPacket = $packet
+                break
+            }
+
+            $approachPackets += $packet
+        }
+
+        if ($null -eq $charactersListPacket) {
+            $charactersListRequest = Encode-Packet -MessageId 150 -Payload ([byte[]]::new(0))
+            $gameStream.Write($charactersListRequest, 0, $charactersListRequest.Length)
+            $charactersListPacket = Read-Packet -Stream $gameStream
+        }
+
         $charactersList = Parse-CharactersList -Payload $charactersListPacket.Payload
 
         if ($charactersList.Count -eq 0) {
@@ -141,8 +158,19 @@ try {
         $mapRequestPacket = Encode-Packet -MessageId 225 -Payload $mapRequestPayload
         $gameStream.Write($mapRequestPacket, 0, $mapRequestPacket.Length)
 
-        for ($index = 0; $index -lt 3; $index++) {
-            [void](Read-Packet -Stream $gameStream)
+        $mapRequestPackets = @()
+        for ($index = 0; $index -lt 8; $index++) {
+            $packet = Try-ReadPacket -Stream $gameStream
+            if ($null -eq $packet) {
+                break
+            }
+
+            $mapRequestPackets += $packet
+        }
+
+        $initialMapPacket = $mapRequestPackets | Where-Object { $_.MessageId -eq 226 } | Select-Object -Last 1
+        if ($null -eq $initialMapPacket) {
+            throw 'MapComplementaryInformationsData packet was not received after the map request.'
         }
 
         $targetCellId = 301
@@ -151,11 +179,16 @@ try {
         $gameStream.Write($movementPacket, 0, $movementPacket.Length)
 
         $movementRefreshPackets = @()
-        for ($index = 0; $index -lt 3; $index++) {
-            $movementRefreshPackets += (Read-Packet -Stream $gameStream)
+        for ($index = 0; $index -lt 8; $index++) {
+            $packet = Try-ReadPacket -Stream $gameStream
+            if ($null -eq $packet) {
+                break
+            }
+
+            $movementRefreshPackets += $packet
         }
 
-        $movementMapPacket = $movementRefreshPackets | Where-Object { $_.MessageId -eq 226 } | Select-Object -First 1
+        $movementMapPacket = $movementRefreshPackets | Where-Object { $_.MessageId -eq 226 } | Select-Object -Last 1
         if ($null -eq $movementMapPacket) {
             throw 'MapComplementaryInformationsData packet was not received after the movement request.'
         }
@@ -167,6 +200,7 @@ try {
             throw "The refreshed actor cell was $($position.CellId) instead of $targetCellId."
         }
 
+        $summary.Add("GameApproachIds=$((($approachPackets | ForEach-Object { $_.MessageId }) -join ','))")
         $summary.Add("SelectedCharacterId=$($selectedCharacter.CharacterId)")
         $summary.Add("MovementRefreshIds=$((($movementRefreshPackets | ForEach-Object { $_.MessageId }) -join ','))")
         $summary.Add("RefreshedCellId=$($position.CellId) RefreshedDirection=$($position.Direction)")
