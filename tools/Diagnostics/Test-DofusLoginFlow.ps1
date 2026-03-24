@@ -117,6 +117,25 @@ function Try-ReadPacket {
     }
 }
 
+function Wait-ForPacketAvailability {
+    param(
+        [System.Net.Sockets.NetworkStream]$Stream,
+        [int]$TimeoutMs = 500
+    )
+
+    $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMs)
+
+    while ([DateTime]::UtcNow -lt $deadline) {
+        if ($Stream.DataAvailable) {
+            return $true
+        }
+
+        Start-Sleep -Milliseconds 25
+    }
+
+    return $Stream.DataAvailable
+}
+
 function Read-AvailablePacket {
     param([System.Net.Sockets.NetworkStream]$Stream)
 
@@ -421,15 +440,14 @@ try {
 
     try {
         $gameStream = $gameClient.GetStream()
-        $firstGamePacket = Read-Packet -Stream $gameStream
-        "GAME mid={0} len={1} hex={2}" -f $firstGamePacket.MessageId, $firstGamePacket.PayloadLength, $firstGamePacket.Hex
+        if (Wait-ForPacketAvailability -Stream $gameStream) {
+            $firstGamePacket = Read-Packet -Stream $gameStream
+            "GAME mid={0} len={1} hex={2}" -f $firstGamePacket.MessageId, $firstGamePacket.PayloadLength, $firstGamePacket.Hex
 
-        if ($firstGamePacket.MessageId -eq 1) {
-            $helloGame = Read-Packet -Stream $gameStream
-            "GAME mid={0} len={1} hex={2}" -f $helloGame.MessageId, $helloGame.PayloadLength, $helloGame.Hex
-        }
-        else {
-            $helloGame = $firstGamePacket
+            if ($firstGamePacket.MessageId -eq 1 -and (Wait-ForPacketAvailability -Stream $gameStream)) {
+                $helloGame = Read-Packet -Stream $gameStream
+                "GAME mid={0} len={1} hex={2}" -f $helloGame.MessageId, $helloGame.PayloadLength, $helloGame.Hex
+            }
         }
 
         $ticketPayload = New-AuthenticationTicketPayload -Language 'es' -Ticket $selectedServerData.Ticket

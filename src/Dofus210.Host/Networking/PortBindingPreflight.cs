@@ -19,6 +19,15 @@ public static class PortBindingPreflight
             new RequestedEndpoint("Game listener", "Server:GamePort", listenAddress, serverOptions.GamePort)
         };
 
+        if (serverOptions.EnableSocketPolicyServer)
+        {
+            requestedEndpoints =
+            [
+                .. requestedEndpoints,
+                new RequestedEndpoint("Socket policy listener", "Server:SocketPolicyPort", listenAddress, serverOptions.SocketPolicyPort)
+            ];
+        }
+
         var conflicts = requestedEndpoints
             .SelectMany(requestedEndpoint => listeners
                 .Where(listener => listener.Port == requestedEndpoint.Port)

@@ -116,6 +116,25 @@ function Try-ReadPacket {
     }
 }
 
+function Wait-ForPacketAvailability {
+    param(
+        [System.Net.Sockets.NetworkStream]$Stream,
+        [int]$TimeoutMs = 500
+    )
+
+    $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMs)
+
+    while ([DateTime]::UtcNow -lt $deadline) {
+        if ($Stream.DataAvailable) {
+            return $true
+        }
+
+        Start-Sleep -Milliseconds 25
+    }
+
+    return $Stream.DataAvailable
+}
+
 function Add-Utf {
     param(
         [System.Collections.Generic.List[byte]]$Buffer,
@@ -547,10 +566,12 @@ try {
 
     try {
         $gameStream = $gameClient.GetStream()
-        $firstGamePacket = Read-Packet -Stream $gameStream
+        if (Wait-ForPacketAvailability -Stream $gameStream) {
+            $firstGamePacket = Read-Packet -Stream $gameStream
 
-        if ($firstGamePacket.MessageId -eq 1) {
-            [void](Read-Packet -Stream $gameStream)
+            if ($firstGamePacket.MessageId -eq 1 -and (Wait-ForPacketAvailability -Stream $gameStream)) {
+                [void](Read-Packet -Stream $gameStream)
+            }
         }
 
         $ticketPayload = New-AuthenticationTicketPayload -Language 'es' -Ticket $selectedServerData.Ticket

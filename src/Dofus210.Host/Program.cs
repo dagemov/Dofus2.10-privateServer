@@ -29,6 +29,7 @@ builder.Services.AddSingleton<IAuthTrafficRecorder, FileAuthTrafficRecorder>();
 builder.Services.AddSingleton<IGameTrafficRecorder, FileGameTrafficRecorder>();
 builder.Services.AddSingleton<IAuthHandshakeFactory, AuthHandshakeFactory>();
 builder.Services.AddSingleton<IAuthTicketStore, AuthTicketStore>();
+builder.Services.AddHostedService<SocketPolicyHostedService>();
 builder.Services.AddHostedService<AuthServerHostedService>();
 builder.Services.AddHostedService<GameServerHostedService>();
 

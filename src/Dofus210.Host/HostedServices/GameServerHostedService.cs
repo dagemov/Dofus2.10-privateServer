@@ -184,12 +184,15 @@ public sealed class GameServerHostedService : BackgroundService
                             stoppingToken);
                     }
 
-                    await SendPayloadAsync(
-                        stream,
-                        connectionId,
-                        remoteEndPoint,
-                        LegacyDofus210Messages.CreateHelloGamePacket(),
-                        stoppingToken);
+                    if (_serverOptions.GameSendHelloGameOnConnect)
+                    {
+                        await SendPayloadAsync(
+                            stream,
+                            connectionId,
+                            remoteEndPoint,
+                            LegacyDofus210Messages.CreateHelloGamePacket(),
+                            stoppingToken);
+                    }
 
                     await ProcessBufferedPacketsAsync(
                         packetBuffer,

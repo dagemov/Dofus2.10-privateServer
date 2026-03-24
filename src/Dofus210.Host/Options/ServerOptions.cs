@@ -12,6 +12,10 @@ public sealed class ServerOptions
 
     public int GamePort { get; set; } = 5556;
 
+    public bool EnableSocketPolicyServer { get; set; } = true;
+
+    public int SocketPolicyPort { get; set; } = 843;
+
     public bool AutoMigrate { get; set; }
 
     public int AuthReceiveBufferSize { get; set; } = 4096;
@@ -53,4 +57,6 @@ public sealed class ServerOptions
     public string GameApproachProfile { get; set; } = "GinyAckPushList";
 
     public bool GameSendProtocolRequiredOnConnect { get; set; }
+
+    public bool GameSendHelloGameOnConnect { get; set; }
 }
