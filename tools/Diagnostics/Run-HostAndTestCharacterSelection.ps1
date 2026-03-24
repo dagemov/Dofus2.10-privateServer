@@ -13,7 +13,7 @@ if (Test-Path $errLogPath) {
 }
 
 $hostProcess = Start-Process dotnet `
-    -ArgumentList @('run', '--project', $project) `
+    -ArgumentList @('run', '--no-build', '--project', $project) `
     -PassThru `
     -WindowStyle Hidden `
     -RedirectStandardOutput $outLogPath `
@@ -27,6 +27,7 @@ try {
 finally {
     if ($hostProcess -and -not $hostProcess.HasExited) {
         Stop-Process -Id $hostProcess.Id -Force
+        Wait-Process -Id $hostProcess.Id -ErrorAction SilentlyContinue
     }
 }
 
