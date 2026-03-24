@@ -448,6 +448,15 @@ public static class LegacyDofus210Messages
         return DofusPacketCodec.Encode(DofusMessageIds.AuthenticationTicketAccepted, []);
     }
 
+    public static byte[] CreateBasicAckPacket(int sequence, ushort lastPacketId)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteVarInt(sequence);
+        writer.WriteVarShort(lastPacketId);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.BasicAck, writer.ToArray());
+    }
+
     public static byte[] CreateAuthenticationTicketRefusedPacket()
     {
         return DofusPacketCodec.Encode(DofusMessageIds.AuthenticationTicketRefused, []);

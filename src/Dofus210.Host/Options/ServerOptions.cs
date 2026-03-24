@@ -51,4 +51,6 @@ public sealed class ServerOptions
     public int GameTicketTimeToLiveMinutes { get; set; } = 5;
 
     public string GameApproachProfile { get; set; } = "CompatibilityPushList";
+
+    public bool GameSendProtocolRequiredOnConnect { get; set; }
 }

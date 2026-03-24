@@ -17,6 +17,7 @@ public static class DofusMessageIds
     public const ushort AuthenticationTicket = 110;
     public const ushort AuthenticationTicketAccepted = 111;
     public const ushort AuthenticationTicketRefused = 112;
+    public const ushort BasicAck = 6362;
     public const ushort AccountCapabilities = 6216;
     public const ushort CharactersListRequest = 150;
     public const ushort CharactersList = 151;

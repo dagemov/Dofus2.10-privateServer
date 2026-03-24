@@ -174,12 +174,15 @@ public sealed class GameServerHostedService : BackgroundService
                     {
                     }
 
-                    await SendPayloadAsync(
-                        stream,
-                        connectionId,
-                        remoteEndPoint,
-                        LegacyDofus210Messages.CreateProtocolRequiredPacket(_serverOptions.AuthRequiredVersion),
-                        stoppingToken);
+                    if (_serverOptions.GameSendProtocolRequiredOnConnect)
+                    {
+                        await SendPayloadAsync(
+                            stream,
+                            connectionId,
+                            remoteEndPoint,
+                            LegacyDofus210Messages.CreateProtocolRequiredPacket(_serverOptions.AuthRequiredVersion),
+                            stoppingToken);
+                    }
 
                     await SendPayloadAsync(
                         stream,
@@ -349,7 +352,10 @@ public sealed class GameServerHostedService : BackgroundService
 
                 if (ticketAccepted)
                 {
-                    var approachPackets = BuildGameApproachPackets(authTicket.Language);
+                    var approachPackets = BuildGameApproachPackets(
+                        authTicket.Language,
+                        state.NextBasicAckSequence++,
+                        DofusMessageIds.AuthenticationTicket);
 
                     foreach (var payload in approachPackets)
                     {
@@ -984,7 +990,7 @@ public sealed class GameServerHostedService : BackgroundService
         return state.GameServerId ?? _serverOptions.GameServerId;
     }
 
-    private IReadOnlyList<byte[]> BuildGameApproachPackets(string language)
+    private IReadOnlyList<byte[]> BuildGameApproachPackets(string language, int basicAckSequence, ushort acknowledgedMessageId)
     {
         var timestamp = DateTimeOffset.UtcNow;
         var profile = (_serverOptions.GameApproachProfile ?? string.Empty).Trim();
@@ -993,6 +999,7 @@ public sealed class GameServerHostedService : BackgroundService
         {
             return
             [
+                LegacyDofus210Messages.CreateBasicAckPacket(basicAckSequence, acknowledgedMessageId),
                 LegacyDofus210Messages.CreateAuthenticationTicketAcceptedPacket()
             ];
         }
@@ -1002,6 +1009,7 @@ public sealed class GameServerHostedService : BackgroundService
         {
             return
             [
+                LegacyDofus210Messages.CreateBasicAckPacket(basicAckSequence, acknowledgedMessageId),
                 LegacyDofus210Messages.CreateAuthenticationTicketAcceptedPacket(),
                 LegacyDofus210Messages.CreateBasicTimePacket(timestamp),
                 LegacyDofus210Messages.CreateBasicDatePacket(timestamp),
@@ -1025,6 +1033,7 @@ public sealed class GameServerHostedService : BackgroundService
 
         return
         [
+            LegacyDofus210Messages.CreateBasicAckPacket(basicAckSequence, acknowledgedMessageId),
             LegacyDofus210Messages.CreateAuthenticationTicketAcceptedPacket(),
             LegacyDofus210Messages.CreateBasicTimePacket(timestamp),
             LegacyDofus210Messages.CreateBasicDatePacket(timestamp),
@@ -1102,6 +1111,8 @@ public sealed class GameServerHostedService : BackgroundService
         public bool IsWorldContextReady { get; set; }
 
         public bool IsCharacterLoadingCompleted { get; set; }
+
+        public int NextBasicAckSequence { get; set; }
 
         public HashSet<long> KnownCharacterIds { get; } = [];
 
