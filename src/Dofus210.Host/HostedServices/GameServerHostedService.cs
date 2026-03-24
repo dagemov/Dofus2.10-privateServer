@@ -333,14 +333,66 @@ public sealed class GameServerHostedService : BackgroundService
                     state.GameServerId = ticketSession.GameServerId;
                 }
 
-                await SendPayloadAsync(
-                    stream,
-                    connectionId,
-                    remoteEndPoint,
-                    ticketAccepted
-                        ? LegacyDofus210Messages.CreateAuthenticationTicketAcceptedPacket()
-                        : LegacyDofus210Messages.CreateAuthenticationTicketRefusedPacket(),
-                    stoppingToken);
+                if (ticketAccepted)
+                {
+                    var timestamp = DateTimeOffset.UtcNow;
+                    var approachPackets = new[]
+                    {
+                        LegacyDofus210Messages.CreateAuthenticationTicketAcceptedPacket(),
+                        LegacyDofus210Messages.CreateBasicTimePacket(timestamp),
+                        LegacyDofus210Messages.CreateBasicDatePacket(timestamp),
+                        LegacyDofus210Messages.CreateServerSettingsPacket(
+                            authTicket.Language,
+                            _serverOptions.ServerCommunityId,
+                            _serverOptions.GameServerType),
+                        LegacyDofus210Messages.CreateServerOptionalFeaturesPacket(3),
+                        LegacyDofus210Messages.CreateAccountCapabilitiesPacket(
+                            tutorialAvailable: false,
+                            breedsVisibleMask: 0x7FFF,
+                            breedsAvailableMask: 0x7FFF,
+                            status: 0),
+                        LegacyDofus210Messages.CreateTrustStatusPacket(true)
+                    };
+
+                    foreach (var payload in approachPackets)
+                    {
+                        await SendPayloadAsync(
+                            stream,
+                            connectionId,
+                            remoteEndPoint,
+                            payload,
+                            stoppingToken);
+                    }
+
+                    var characters = await characterDirectoryService.ListForAccountAsync(
+                        state.Account!.Id,
+                        ResolveGameServerId(state),
+                        stoppingToken);
+
+                    state.SetKnownCharacters(characters);
+
+                    _logger.LogInformation(
+                        "Game approach bootstrap completed. ConnectionId={ConnectionId} AccountId={AccountId} CharacterCount={CharacterCount}",
+                        connectionId,
+                        state.Account.Id,
+                        characters.Count);
+
+                    await SendPayloadAsync(
+                        stream,
+                        connectionId,
+                        remoteEndPoint,
+                        LegacyDofus210Messages.CreateCharactersListPacket(characters),
+                        stoppingToken);
+                }
+                else
+                {
+                    await SendPayloadAsync(
+                        stream,
+                        connectionId,
+                        remoteEndPoint,
+                        LegacyDofus210Messages.CreateAuthenticationTicketRefusedPacket(),
+                        stoppingToken);
+                }
 
                 continue;
             }

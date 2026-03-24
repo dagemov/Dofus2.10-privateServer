@@ -453,6 +453,57 @@ public static class LegacyDofus210Messages
         return DofusPacketCodec.Encode(DofusMessageIds.AuthenticationTicketRefused, []);
     }
 
+    public static byte[] CreateServerSettingsPacket(
+        string language,
+        byte communityId,
+        byte gameType,
+        int arenaLeaveBanTime = 0)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteUtf(language);
+        writer.WriteByte(communityId);
+        writer.WriteByte(gameType);
+        writer.WriteInt(arenaLeaveBanTime);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.ServerSettings, writer.ToArray());
+    }
+
+    public static byte[] CreateServerOptionalFeaturesPacket(params ushort[] features)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteUnsignedShort((ushort)features.Length);
+
+        foreach (var feature in features)
+        {
+            writer.WriteVarShort(feature);
+        }
+
+        return DofusPacketCodec.Encode(DofusMessageIds.ServerOptionalFeatures, writer.ToArray());
+    }
+
+    public static byte[] CreateAccountCapabilitiesPacket(
+        bool tutorialAvailable,
+        int breedsVisibleMask,
+        int breedsAvailableMask,
+        byte status)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteBoolean(tutorialAvailable);
+        writer.WriteVarInt(breedsVisibleMask);
+        writer.WriteVarInt(breedsAvailableMask);
+        writer.WriteByte(status);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.AccountCapabilities, writer.ToArray());
+    }
+
+    public static byte[] CreateTrustStatusPacket(bool trusted)
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteBoolean(trusted);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.TrustStatus, writer.ToArray());
+    }
+
     public static byte[] CreateCharactersListPacket(IReadOnlyCollection<CharacterSummary> characters)
     {
         using var writer = new DofusDataWriter();

@@ -351,11 +351,17 @@ try {
         $ticketPayload = New-AuthenticationTicketPayload -Language 'es' -Ticket $selectedServerData.Ticket
         $ticketPacket = Encode-Packet -MessageId 110 -Payload $ticketPayload
         $gameStream.Write($ticketPacket, 0, $ticketPacket.Length)
-        [void](Read-Packet -Stream $gameStream)
+        $approachPackets = @()
+        for ($index = 0; $index -lt 8; $index++) {
+            $approachPackets += (Read-Packet -Stream $gameStream)
+        }
 
-        $charactersListRequest = Encode-Packet -MessageId 150 -Payload ([byte[]]::new(0))
-        $gameStream.Write($charactersListRequest, 0, $charactersListRequest.Length)
-        $beforeList = Read-Packet -Stream $gameStream
+        $beforeList = $approachPackets | Where-Object { $_.MessageId -eq 151 } | Select-Object -First 1
+        if ($null -eq $beforeList) {
+            $charactersListRequest = Encode-Packet -MessageId 150 -Payload ([byte[]]::new(0))
+            $gameStream.Write($charactersListRequest, 0, $charactersListRequest.Length)
+            $beforeList = Read-Packet -Stream $gameStream
+        }
 
         $creationPayload = New-CharacterCreationPayload -Name $characterName -BreedId 1 -Sex $false
         $creationPacket = Encode-Packet -MessageId 777 -Payload $creationPayload

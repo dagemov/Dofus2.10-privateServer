@@ -425,13 +425,21 @@ try {
         $ticketPacket = Encode-Packet -MessageId 110 -Payload $ticketPayload
         $gameStream.Write($ticketPacket, 0, $ticketPacket.Length)
 
-        $ticketResponse = Read-Packet -Stream $gameStream
-        "GAME mid={0} len={1} hex={2}" -f $ticketResponse.MessageId, $ticketResponse.PayloadLength, $ticketResponse.Hex
+        $approachPackets = @()
+        for ($index = 0; $index -lt 8; $index++) {
+            $approachPackets += (Read-Packet -Stream $gameStream)
+        }
 
-        $charactersListRequest = Encode-Packet -MessageId 150 -Payload ([byte[]]::new(0))
-        $gameStream.Write($charactersListRequest, 0, $charactersListRequest.Length)
+        foreach ($packet in $approachPackets) {
+            "GAME mid={0} len={1} hex={2}" -f $packet.MessageId, $packet.PayloadLength, $packet.Hex
+        }
 
-        $charactersList = Read-Packet -Stream $gameStream
+        $charactersList = $approachPackets | Where-Object { $_.MessageId -eq 151 } | Select-Object -First 1
+        if ($null -eq $charactersList) {
+            $charactersListRequest = Encode-Packet -MessageId 150 -Payload ([byte[]]::new(0))
+            $gameStream.Write($charactersListRequest, 0, $charactersListRequest.Length)
+            $charactersList = Read-Packet -Stream $gameStream
+        }
         "GAME mid={0} len={1} hex={2}" -f $charactersList.MessageId, $charactersList.PayloadLength, $charactersList.Hex
     }
     finally {

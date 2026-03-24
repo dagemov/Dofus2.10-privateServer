@@ -545,11 +545,17 @@ try {
         $ticketPayload = New-AuthenticationTicketPayload -Language 'es' -Ticket $selectedServerData.Ticket
         $ticketPacket = Encode-Packet -MessageId 110 -Payload $ticketPayload
         $gameStream.Write($ticketPacket, 0, $ticketPacket.Length)
-        [void](Read-Packet -Stream $gameStream)
+        $approachPackets = @()
+        for ($index = 0; $index -lt 7; $index++) {
+            $approachPackets += (Read-Packet -Stream $gameStream)
+        }
 
-        $charactersListRequest = Encode-Packet -MessageId 150 -Payload ([byte[]]::new(0))
-        $gameStream.Write($charactersListRequest, 0, $charactersListRequest.Length)
         $charactersListPacket = Read-Packet -Stream $gameStream
+        if ($charactersListPacket.MessageId -ne 151) {
+            $charactersListRequest = Encode-Packet -MessageId 150 -Payload ([byte[]]::new(0))
+            $gameStream.Write($charactersListRequest, 0, $charactersListRequest.Length)
+            $charactersListPacket = Read-Packet -Stream $gameStream
+        }
         $charactersList = Parse-CharactersList -Payload $charactersListPacket.Payload
 
         if ($charactersList.Count -eq 0) {
@@ -612,6 +618,7 @@ try {
 
         $mapComplementary = Parse-MapComplementaryInformationsData -Payload $mapComplementaryPacket.Payload
 
+        $summary.Add("GameApproachIds=$((($approachPackets | ForEach-Object { $_.MessageId }) -join ','))")
         $summary.Add("SelectedCharacterId=$($selectedCharacter.CharacterId) SelectedCharacterName=$($selectedCharacter.Name)")
         $summary.Add("SelectionBootstrapIds=$((($bootstrapPackets | ForEach-Object { $_.MessageId }) -join ','))")
         $summary.Add("SelectionMapId=$mapId")

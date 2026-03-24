@@ -17,6 +17,7 @@ public static class DofusMessageIds
     public const ushort AuthenticationTicket = 110;
     public const ushort AuthenticationTicketAccepted = 111;
     public const ushort AuthenticationTicketRefused = 112;
+    public const ushort AccountCapabilities = 6216;
     public const ushort CharactersListRequest = 150;
     public const ushort CharactersList = 151;
     public const ushort CharacterSelection = 152;
@@ -37,8 +38,11 @@ public static class DofusMessageIds
     public const ushort CharacterStatsList = 500;
     public const ushort GameRolePlayPlayerLifeStatus = 5996;
     public const ushort ShortcutBarContent = 6231;
+    public const ushort ServerOptionalFeatures = 6305;
+    public const ushort ServerSettings = 6340;
     public const ushort SetCharacterRestrictions = 170;
     public const ushort CharacterCapabilities = 6339;
+    public const ushort TrustStatus = 6267;
     public const ushort InventoryWeight = 3009;
     public const ushort InventoryContent = 3016;
     public const ushort SpellList = 1200;
