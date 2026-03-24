@@ -405,7 +405,7 @@ public sealed class AuthServerHostedService : BackgroundService
         }
 
         _logger.LogInformation(
-            "Identification received. ConnectionId={ConnectionId} Version={Major}.{Minor}.{Release}.{Revision}.{Patch} BuildType={BuildType} Lang={Lang} Username={Username} RequestedServerId={ServerId} AutoConnect={AutoConnect}",
+            "Identification received. ConnectionId={ConnectionId} Version={Major}.{Minor}.{Release}.{Revision}.{Patch} BuildType={BuildType} Lang={Lang} Username={Username} RequestedServerId={ServerId} AutoConnect={AutoConnect} AesKeyLength={AesKeyLength}",
             connectionId,
             identification.Version.Major,
             identification.Version.Minor,
@@ -416,7 +416,8 @@ public sealed class AuthServerHostedService : BackgroundService
             identification.Language,
             credentials.Username,
             identification.ServerId,
-            identification.AutoConnect);
+            identification.AutoConnect,
+            credentials.AesKey.Length);
 
         var authentication = await accountDirectoryService.ValidateCredentialsDetailedAsync(
             credentials.Username,
@@ -444,6 +445,7 @@ public sealed class AuthServerHostedService : BackgroundService
         }
 
         state.Account = authentication.Account;
+        state.TicketCipherKey = credentials.AesKey.Length == 32 ? credentials.AesKey : null;
         var availableServers = await gameServerDirectoryService.ListForAccountAsync(
             authentication.Account.Id,
             cancellationToken);
@@ -543,7 +545,8 @@ public sealed class AuthServerHostedService : BackgroundService
         var ticketSession = _authTicketStore.Issue(
             state.Account,
             selectedServer.Id,
-            _serverOptions.GameTicketTimeToLiveMinutes);
+            _serverOptions.GameTicketTimeToLiveMinutes,
+            state.TicketCipherKey);
 
         await SendPayloadAsync(
             stream,
@@ -729,5 +732,7 @@ public sealed class AuthServerHostedService : BackgroundService
         public AuthenticatedAccount? Account { get; set; }
 
         public bool CloseAfterCurrentPacket { get; set; }
+
+        public byte[]? TicketCipherKey { get; set; }
     }
 }

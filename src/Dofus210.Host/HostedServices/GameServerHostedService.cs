@@ -321,8 +321,41 @@ public sealed class GameServerHostedService : BackgroundService
 
             if (packet.MessageId == DofusMessageIds.AuthenticationTicket)
             {
-                var authTicket = LegacyDofus210Messages.ReadAuthenticationTicket(packet.Payload);
-                var ticketAccepted = _authTicketStore.TryConsume(authTicket.Ticket, out var ticketSession);
+                if (!LegacyDofus210Messages.TryReadAuthenticationTicket(packet.Payload, out var authTicket) ||
+                    authTicket is null)
+                {
+                    _logger.LogWarning(
+                        "AuthenticationTicket payload could not be decoded. ConnectionId={ConnectionId} Hex={Hex}",
+                        connectionId,
+                        Convert.ToHexString(packet.Payload));
+
+                    await SendPayloadAsync(
+                        stream,
+                        connectionId,
+                        remoteEndPoint,
+                        LegacyDofus210Messages.CreateAuthenticationTicketRefusedPacket(),
+                        stoppingToken);
+
+                    continue;
+                }
+
+                AuthTicketSession ticketSession = default!;
+                var ticketAccepted = !string.IsNullOrWhiteSpace(authTicket.Ticket) &&
+                                     _authTicketStore.TryConsume(authTicket.Ticket, out ticketSession);
+
+                if (!ticketAccepted && authTicket.RawTicketPayload.Length > 0)
+                {
+                    ticketAccepted = _authTicketStore.TryConsumePayload(authTicket.RawTicketPayload, out ticketSession);
+
+                    if (ticketAccepted)
+                    {
+                        _logger.LogInformation(
+                            "Game ticket payload match used. ConnectionId={ConnectionId} Encoding={EncodingMode} RawLength={RawLength}",
+                            connectionId,
+                            authTicket.EncodingMode,
+                            authTicket.RawTicketPayload.Length);
+                    }
+                }
 
                 if (!ticketAccepted)
                 {
@@ -331,17 +364,20 @@ public sealed class GameServerHostedService : BackgroundService
                     if (ticketAccepted)
                     {
                         _logger.LogWarning(
-                            "Game ticket fallback used. ConnectionId={ConnectionId} ProvidedTicket={Ticket}",
+                            "Game ticket fallback used. ConnectionId={ConnectionId} ProvidedTicket={Ticket} Encoding={EncodingMode}",
                             connectionId,
-                            authTicket.Ticket);
+                            authTicket.Ticket ?? "<null>",
+                            authTicket.EncodingMode);
                     }
                 }
 
                 _logger.LogInformation(
-                    "AuthenticationTicket received. ConnectionId={ConnectionId} Lang={Lang} Ticket={Ticket} Accepted={Accepted}",
+                    "AuthenticationTicket received. ConnectionId={ConnectionId} Lang={Lang} Ticket={Ticket} Encoding={EncodingMode} RawLength={RawLength} Accepted={Accepted}",
                     connectionId,
                     authTicket.Language,
-                    authTicket.Ticket,
+                    authTicket.Ticket ?? "<null>",
+                    authTicket.EncodingMode,
+                    authTicket.RawTicketPayload.Length,
                     ticketAccepted);
 
                 if (ticketAccepted)
@@ -995,6 +1031,59 @@ public sealed class GameServerHostedService : BackgroundService
     {
         var timestamp = DateTimeOffset.UtcNow;
         var profile = (_serverOptions.GameApproachProfile ?? string.Empty).Trim();
+        var defaultPackets =
+            new[]
+            {
+                LegacyDofus210Messages.CreateBasicAckPacket(basicAckSequence, acknowledgedMessageId),
+                LegacyDofus210Messages.CreateAuthenticationTicketAcceptedPacket(),
+                LegacyDofus210Messages.CreateBasicTimePacket(timestamp),
+                LegacyDofus210Messages.CreateBasicDatePacket(timestamp),
+                LegacyDofus210Messages.CreateServerSettingsPacket(
+                    language,
+                    _serverOptions.ServerCommunityId,
+                    _serverOptions.GameServerType,
+                    isMonoAccount: false,
+                    arenaLeaveBanTime: 1,
+                    itemMaxLevel: 200,
+                    hasFreeAutopilot: true),
+                LegacyDofus210Messages.CreateServerOptionalFeaturesPacket(23, 125),
+                LegacyDofus210Messages.CreateServerSessionConstantsPacket(),
+                LegacyDofus210Messages.CreateAccountCapabilitiesPacket(
+                    accountId,
+                    tutorialAvailable: true,
+                    status: 0,
+                    canCreateNewCharacter: true),
+                LegacyDofus210Messages.CreateTrustStatusPacket(true)
+            };
+
+        var ginyLikePackets =
+            new[]
+            {
+                LegacyDofus210Messages.CreateBasicTimePacket(timestamp),
+                LegacyDofus210Messages.CreateServerSettingsPacket(
+                    language,
+                    _serverOptions.ServerCommunityId,
+                    _serverOptions.GameServerType,
+                    isMonoAccount: false,
+                    arenaLeaveBanTime: 1,
+                    itemMaxLevel: 200,
+                    hasFreeAutopilot: true),
+                LegacyDofus210Messages.CreateServerOptionalFeaturesPacket(23, 125),
+                LegacyDofus210Messages.CreateServerSessionConstantsPacket(),
+                LegacyDofus210Messages.CreateAccountCapabilitiesPacket(
+                    accountId,
+                    tutorialAvailable: true,
+                    status: 0,
+                    canCreateNewCharacter: true),
+                LegacyDofus210Messages.CreateTrustStatusPacket(true),
+                LegacyDofus210Messages.CreateAuthenticationTicketAcceptedPacket()
+            };
+
+        var ginyLikeAckPackets = new List<byte[]>
+        {
+            LegacyDofus210Messages.CreateBasicAckPacket(basicAckSequence, acknowledgedMessageId)
+        };
+        ginyLikeAckPackets.AddRange(ginyLikePackets);
 
         if (profile.Equals("MinimalClassic", StringComparison.OrdinalIgnoreCase))
         {
@@ -1008,64 +1097,35 @@ public sealed class GameServerHostedService : BackgroundService
         if (profile.Equals("CompatibilityNoPushList", StringComparison.OrdinalIgnoreCase) ||
             profile.Equals("CompatibilityPushList", StringComparison.OrdinalIgnoreCase))
         {
-            return
-            [
-                LegacyDofus210Messages.CreateBasicAckPacket(basicAckSequence, acknowledgedMessageId),
-                LegacyDofus210Messages.CreateAuthenticationTicketAcceptedPacket(),
-                LegacyDofus210Messages.CreateBasicTimePacket(timestamp),
-                LegacyDofus210Messages.CreateBasicDatePacket(timestamp),
-                LegacyDofus210Messages.CreateServerSettingsPacket(
-                    language,
-                    _serverOptions.ServerCommunityId,
-                    _serverOptions.GameServerType,
-                    isMonoAccount: false,
-                    arenaLeaveBanTime: 1,
-                    itemMaxLevel: 200,
-                    hasFreeAutopilot: true),
-                LegacyDofus210Messages.CreateServerOptionalFeaturesPacket(3),
-                LegacyDofus210Messages.CreateServerSessionConstantsPacket(),
-                LegacyDofus210Messages.CreateAccountCapabilitiesPacket(
-                    accountId,
-                    tutorialAvailable: false,
-                    status: 0,
-                    canCreateNewCharacter: true),
-                LegacyDofus210Messages.CreateTrustStatusPacket(true)
-            ];
+            return defaultPackets;
+        }
+
+        if (profile.Equals("GinyPushList", StringComparison.OrdinalIgnoreCase) ||
+            profile.Equals("GinyNoPushList", StringComparison.OrdinalIgnoreCase))
+        {
+            return ginyLikePackets;
+        }
+
+        if (profile.Equals("GinyAckPushList", StringComparison.OrdinalIgnoreCase) ||
+            profile.Equals("GinyAckNoPushList", StringComparison.OrdinalIgnoreCase))
+        {
+            return ginyLikeAckPackets;
         }
 
         _logger.LogWarning(
             "Unknown GameApproachProfile '{Profile}'. Falling back to CompatibilityPushList.",
             profile);
 
-        return
-        [
-            LegacyDofus210Messages.CreateBasicAckPacket(basicAckSequence, acknowledgedMessageId),
-            LegacyDofus210Messages.CreateAuthenticationTicketAcceptedPacket(),
-            LegacyDofus210Messages.CreateBasicTimePacket(timestamp),
-            LegacyDofus210Messages.CreateBasicDatePacket(timestamp),
-            LegacyDofus210Messages.CreateServerSettingsPacket(
-                language,
-                _serverOptions.ServerCommunityId,
-                _serverOptions.GameServerType,
-                isMonoAccount: false,
-                arenaLeaveBanTime: 1,
-                itemMaxLevel: 200,
-                hasFreeAutopilot: true),
-            LegacyDofus210Messages.CreateServerOptionalFeaturesPacket(3),
-            LegacyDofus210Messages.CreateServerSessionConstantsPacket(),
-            LegacyDofus210Messages.CreateAccountCapabilitiesPacket(
-                accountId,
-                tutorialAvailable: false,
-                status: 0,
-                canCreateNewCharacter: true),
-            LegacyDofus210Messages.CreateTrustStatusPacket(true)
-        ];
+        return defaultPackets;
     }
 
     private bool ShouldPushCharactersListDuringApproach()
     {
-        return (_serverOptions.GameApproachProfile ?? string.Empty).Trim()
-            .Equals("CompatibilityPushList", StringComparison.OrdinalIgnoreCase);
+        var profile = (_serverOptions.GameApproachProfile ?? string.Empty).Trim();
+
+        return profile.Equals("CompatibilityPushList", StringComparison.OrdinalIgnoreCase) ||
+               profile.Equals("GinyPushList", StringComparison.OrdinalIgnoreCase) ||
+               profile.Equals("GinyAckPushList", StringComparison.OrdinalIgnoreCase);
     }
 
     private string ResolveTranscriptPath()

@@ -5,7 +5,11 @@ $testScript = 'C:\Users\Hombr\source\repos\Dofus2.10\tools\Diagnostics\Test-Dofu
 $profiles = @(
     'CompatibilityPushList',
     'CompatibilityNoPushList',
-    'MinimalClassic'
+    'MinimalClassic',
+    'GinyPushList',
+    'GinyNoPushList',
+    'GinyAckPushList',
+    'GinyAckNoPushList'
 )
 
 dotnet build 'C:\Users\Hombr\source\repos\Dofus2.10\Dofus2.10.sln' -nodeReuse:false | Out-Null

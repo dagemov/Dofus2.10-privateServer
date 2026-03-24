@@ -1,5 +1,6 @@
 using Dofus210.Bll.Models;
 using Dofus210.Host.Options;
+using System.Text;
 
 namespace Dofus210.Host.Auth;
 
@@ -24,7 +25,14 @@ public sealed record LegacyIdentificationMessage(
 
 public sealed record LegacyCredentialBlob(
     string Username,
-    string Password);
+    string Password,
+    byte[] AesKey);
+
+public sealed record LegacyAuthenticationTicketMessage(
+    string Language,
+    string? Ticket,
+    byte[] RawTicketPayload,
+    string EncodingMode);
 
 public sealed record LegacyGameMapMovementRequest(
     IReadOnlyList<ushort> KeyMovements,
@@ -170,8 +178,11 @@ public static class LegacyDofus210Messages
             var reader = new DofusDataReader(payload);
             var username = reader.ReadUtf();
             var password = reader.ReadUtf();
+            var aesKey = reader.Remaining > 0
+                ? reader.ReadBytes(reader.Remaining)
+                : [];
 
-            credentials = new LegacyCredentialBlob(username, password);
+            credentials = new LegacyCredentialBlob(username, password, aesKey);
             return true;
         }
         catch
@@ -205,13 +216,64 @@ public static class LegacyDofus210Messages
         return checked((short)serverId);
     }
 
-    public static (string Language, string Ticket) ReadAuthenticationTicket(ReadOnlySpan<byte> payload)
+    public static bool TryReadAuthenticationTicket(
+        ReadOnlySpan<byte> payload,
+        out LegacyAuthenticationTicketMessage? message)
     {
-        var reader = new DofusDataReader(payload);
-        var language = reader.ReadUtf();
-        var ticket = reader.ReadUtf();
+        message = null;
 
-        return (language, ticket);
+        try
+        {
+            var reader = new DofusDataReader(payload);
+            var language = reader.ReadUtf();
+
+            try
+            {
+                var ticket = reader.ReadUtf();
+
+                if (reader.Remaining == 0)
+                {
+                    message = new LegacyAuthenticationTicketMessage(
+                        language,
+                        ticket,
+                        Encoding.ASCII.GetBytes(ticket),
+                        "UtfString");
+
+                    return true;
+                }
+            }
+            catch
+            {
+                // Fall through to raw ticket compatibility parsing.
+            }
+
+            var rawReader = new DofusDataReader(payload);
+            language = rawReader.ReadUtf();
+
+            if (rawReader.Remaining == 0)
+            {
+                message = new LegacyAuthenticationTicketMessage(language, string.Empty, [], "Empty");
+                return true;
+            }
+
+            var remainingBytes = rawReader.ReadRemainingBytes();
+            var rawTicketPayload = TryReadLengthPrefixedTicketBytes(remainingBytes, out var prefixedTicketBytes)
+                ? prefixedTicketBytes
+                : remainingBytes;
+
+            message = new LegacyAuthenticationTicketMessage(
+                language,
+                TryDecodeAsciiTicket(rawTicketPayload),
+                rawTicketPayload,
+                ReferenceEquals(rawTicketPayload, remainingBytes) ? "RawBytes" : "LengthPrefixedBytes");
+
+            return true;
+        }
+        catch
+        {
+            message = null;
+            return false;
+        }
     }
 
     public static bool TryReadCharacterCreationRequest(
@@ -953,5 +1015,41 @@ public static class LegacyDofus210Messages
         }
 
         return (byte)(box & ~(1 << bit));
+    }
+
+    private static bool TryReadLengthPrefixedTicketBytes(
+        ReadOnlySpan<byte> payload,
+        out byte[] ticketBytes)
+    {
+        ticketBytes = [];
+
+        try
+        {
+            var reader = new DofusDataReader(payload);
+            var byteCount = reader.ReadVarInt();
+
+            if (byteCount < 0 || reader.Remaining != byteCount)
+            {
+                return false;
+            }
+
+            ticketBytes = reader.ReadBytes(byteCount);
+            return true;
+        }
+        catch
+        {
+            ticketBytes = [];
+            return false;
+        }
+    }
+
+    private static string? TryDecodeAsciiTicket(byte[] payload)
+    {
+        if (payload.Length == 0 || payload.Any(value => value is < 0x20 or > 0x7E))
+        {
+            return null;
+        }
+
+        return Encoding.ASCII.GetString(payload);
     }
 }

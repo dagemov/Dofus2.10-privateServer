@@ -1,8 +1,8 @@
 $ErrorActionPreference = 'Stop'
 
 param(
-    [ValidateSet('CompatibilityPushList', 'CompatibilityNoPushList', 'MinimalClassic')]
-    [string]$ApproachProfile = 'CompatibilityPushList',
+    [ValidateSet('CompatibilityPushList', 'CompatibilityNoPushList', 'MinimalClassic', 'GinyPushList', 'GinyNoPushList', 'GinyAckPushList', 'GinyAckNoPushList')]
+    [string]$ApproachProfile = 'GinyAckPushList',
     [bool]$SendGameProtocolRequired = $false
 )
 
