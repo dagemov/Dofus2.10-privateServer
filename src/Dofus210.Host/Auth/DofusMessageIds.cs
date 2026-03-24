@@ -44,6 +44,7 @@ public static class DofusMessageIds
     public const ushort SetCharacterRestrictions = 170;
     public const ushort CharacterCapabilities = 6339;
     public const ushort TrustStatus = 6267;
+    public const ushort ServerSessionConstants = 6434;
     public const ushort InventoryWeight = 3009;
     public const ushort InventoryContent = 3016;
     public const ushort SpellList = 1200;

@@ -353,6 +353,7 @@ public sealed class GameServerHostedService : BackgroundService
                 if (ticketAccepted)
                 {
                     var approachPackets = BuildGameApproachPackets(
+                        ticketSession.Account.Id,
                         authTicket.Language,
                         state.NextBasicAckSequence++,
                         DofusMessageIds.AuthenticationTicket);
@@ -990,7 +991,7 @@ public sealed class GameServerHostedService : BackgroundService
         return state.GameServerId ?? _serverOptions.GameServerId;
     }
 
-    private IReadOnlyList<byte[]> BuildGameApproachPackets(string language, int basicAckSequence, ushort acknowledgedMessageId)
+    private IReadOnlyList<byte[]> BuildGameApproachPackets(int accountId, string language, int basicAckSequence, ushort acknowledgedMessageId)
     {
         var timestamp = DateTimeOffset.UtcNow;
         var profile = (_serverOptions.GameApproachProfile ?? string.Empty).Trim();
@@ -1016,13 +1017,18 @@ public sealed class GameServerHostedService : BackgroundService
                 LegacyDofus210Messages.CreateServerSettingsPacket(
                     language,
                     _serverOptions.ServerCommunityId,
-                    _serverOptions.GameServerType),
+                    _serverOptions.GameServerType,
+                    isMonoAccount: false,
+                    arenaLeaveBanTime: 1,
+                    itemMaxLevel: 200,
+                    hasFreeAutopilot: true),
                 LegacyDofus210Messages.CreateServerOptionalFeaturesPacket(3),
+                LegacyDofus210Messages.CreateServerSessionConstantsPacket(),
                 LegacyDofus210Messages.CreateAccountCapabilitiesPacket(
+                    accountId,
                     tutorialAvailable: false,
-                    breedsVisibleMask: 0x7FFF,
-                    breedsAvailableMask: 0x7FFF,
-                    status: 0),
+                    status: 0,
+                    canCreateNewCharacter: true),
                 LegacyDofus210Messages.CreateTrustStatusPacket(true)
             ];
         }
@@ -1040,13 +1046,18 @@ public sealed class GameServerHostedService : BackgroundService
             LegacyDofus210Messages.CreateServerSettingsPacket(
                 language,
                 _serverOptions.ServerCommunityId,
-                _serverOptions.GameServerType),
+                _serverOptions.GameServerType,
+                isMonoAccount: false,
+                arenaLeaveBanTime: 1,
+                itemMaxLevel: 200,
+                hasFreeAutopilot: true),
             LegacyDofus210Messages.CreateServerOptionalFeaturesPacket(3),
+            LegacyDofus210Messages.CreateServerSessionConstantsPacket(),
             LegacyDofus210Messages.CreateAccountCapabilitiesPacket(
+                accountId,
                 tutorialAvailable: false,
-                breedsVisibleMask: 0x7FFF,
-                breedsAvailableMask: 0x7FFF,
-                status: 0),
+                status: 0,
+                canCreateNewCharacter: true),
             LegacyDofus210Messages.CreateTrustStatusPacket(true)
         ];
     }

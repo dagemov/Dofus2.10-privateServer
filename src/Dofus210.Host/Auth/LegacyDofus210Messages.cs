@@ -466,13 +466,22 @@ public static class LegacyDofus210Messages
         string language,
         byte communityId,
         byte gameType,
-        int arenaLeaveBanTime = 0)
+        bool isMonoAccount,
+        short arenaLeaveBanTime,
+        int itemMaxLevel,
+        bool hasFreeAutopilot)
     {
         using var writer = new DofusDataWriter();
+        var flags = (byte)0;
+        flags = SetFlag(flags, 0, isMonoAccount);
+        flags = SetFlag(flags, 1, hasFreeAutopilot);
+
+        writer.WriteByte(flags);
         writer.WriteUtf(language);
         writer.WriteByte(communityId);
         writer.WriteByte(gameType);
-        writer.WriteInt(arenaLeaveBanTime);
+        writer.WriteVarShort(arenaLeaveBanTime);
+        writer.WriteInt(itemMaxLevel);
 
         return DofusPacketCodec.Encode(DofusMessageIds.ServerSettings, writer.ToArray());
     }
@@ -491,18 +500,33 @@ public static class LegacyDofus210Messages
     }
 
     public static byte[] CreateAccountCapabilitiesPacket(
+        int accountId,
         bool tutorialAvailable,
-        int breedsVisibleMask,
-        int breedsAvailableMask,
-        byte status)
+        byte status,
+        bool canCreateNewCharacter)
     {
         using var writer = new DofusDataWriter();
-        writer.WriteBoolean(tutorialAvailable);
-        writer.WriteVarInt(breedsVisibleMask);
-        writer.WriteVarInt(breedsAvailableMask);
+        var flags = (byte)0;
+        flags = SetFlag(flags, 0, tutorialAvailable);
+        flags = SetFlag(flags, 1, canCreateNewCharacter);
+
+        writer.WriteByte(flags);
+        writer.WriteInt(accountId);
         writer.WriteByte(status);
 
         return DofusPacketCodec.Encode(DofusMessageIds.AccountCapabilities, writer.ToArray());
+    }
+
+    public static byte[] CreateServerSessionConstantsPacket()
+    {
+        using var writer = new DofusDataWriter();
+        writer.WriteUnsignedShort(3);
+
+        WriteIntegerServerSessionConstant(writer, 2, 7_200_000);
+        WriteIntegerServerSessionConstant(writer, 6, 10);
+        WriteIntegerServerSessionConstant(writer, 7, 2_000);
+
+        return DofusPacketCodec.Encode(DofusMessageIds.ServerSessionConstants, writer.ToArray());
     }
 
     public static byte[] CreateTrustStatusPacket(bool trusted)
@@ -909,6 +933,16 @@ public static class LegacyDofus210Messages
         writer.WriteByte(0);
         writer.WriteByte(0);
         writer.WriteDouble(0);
+    }
+
+    private static void WriteIntegerServerSessionConstant(
+        DofusDataWriter writer,
+        short id,
+        int value)
+    {
+        writer.WriteUnsignedShort(4796);
+        writer.WriteVarShort(id);
+        writer.WriteInt(value);
     }
 
     private static byte SetFlag(byte box, int bit, bool value)
