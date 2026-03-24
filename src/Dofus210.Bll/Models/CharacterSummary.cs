@@ -8,5 +8,6 @@ public sealed record CharacterSummary(
     bool Sex,
     int BonesId,
     int SkinId,
+    int ScalePercent,
     short CosmeticId,
     IReadOnlyList<int> IndexedColors);

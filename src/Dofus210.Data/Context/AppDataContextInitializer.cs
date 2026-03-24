@@ -1,4 +1,5 @@
 using Dofus210.Data.Entities;
+using Dofus210.Helper.EntityLook;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dofus210.Data.Context;
@@ -18,6 +19,7 @@ public sealed class AppDataContextInitializer : IAppDataContextInitializer
         await SynchronizeHardcodedAccountsAsync(cancellationToken);
         await SynchronizeHardcodedBreedsAsync(cancellationToken);
         await SynchronizeHardcodedGameServersAsync(cancellationToken);
+        await NormalizeCharacterLooksAsync(cancellationToken);
         await NormalizeSpawnPositionsAsync(cancellationToken);
 
         return databaseCreated;
@@ -146,6 +148,45 @@ public sealed class AppDataContextInitializer : IAppDataContextInitializer
         {
             await _context.Database.ExecuteSqlRawAsync("SET IDENTITY_INSERT [GameServers] OFF;", cancellationToken);
             throw;
+        }
+    }
+
+    private async Task NormalizeCharacterLooksAsync(CancellationToken cancellationToken)
+    {
+        var characters = await _context.Characters
+            .Include(character => character.Breed)
+            .ToListAsync(cancellationToken);
+
+        var changesPending = false;
+
+        foreach (var character in characters)
+        {
+            if (character.Breed is null)
+            {
+                continue;
+            }
+
+            var descriptor = LegacyBreedLookParser.Parse(
+                character.Sex
+                    ? character.Breed.FemaleLook
+                    : character.Breed.MaleLook);
+
+            if (character.BonesId <= 0 && descriptor.BonesId > 0)
+            {
+                character.BonesId = descriptor.BonesId;
+                changesPending = true;
+            }
+
+            if (character.SkinId <= 0 && descriptor.PrimarySkinId > 0)
+            {
+                character.SkinId = descriptor.PrimarySkinId;
+                changesPending = true;
+            }
+        }
+
+        if (changesPending)
+        {
+            await _context.SaveChangesAsync(cancellationToken);
         }
     }
 

@@ -2,6 +2,7 @@ using Dofus210.Bll.Models;
 using Dofus210.Data.Context;
 using Dofus210.Data.Entities;
 using Dofus210.Data.UnitOfWork;
+using Dofus210.Helper.EntityLook;
 using Dofus210.Helper.Guards;
 using Microsoft.EntityFrameworkCore;
 
@@ -43,6 +44,8 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
                 character.BonesId,
                 character.SkinId,
                 character.CosmeticId,
+                character.Breed.MaleLook,
+                character.Breed.FemaleLook,
                 character.Color1,
                 character.Color2,
                 character.Color3,
@@ -52,7 +55,7 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
             .ToListAsync(cancellationToken);
 
         return rows
-            .Select(character => new CharacterSummary(
+            .Select(character => CreateCharacterSummary(
                 character.Id,
                 character.Name,
                 character.Level,
@@ -61,16 +64,13 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
                 character.BonesId,
                 character.SkinId,
                 character.CosmeticId,
-                new[]
-                {
-                    character.Color1,
-                    character.Color2,
-                    character.Color3,
-                    character.Color4,
-                    character.Color5
-                }
-                .Where(color => color > 0)
-                .ToArray()))
+                character.MaleLook,
+                character.FemaleLook,
+                character.Color1,
+                character.Color2,
+                character.Color3,
+                character.Color4,
+                character.Color5))
             .ToArray();
     }
 
@@ -140,7 +140,7 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
         }
 
         var colors = NormalizeColors(request.Colors);
-        var bonesId = request.Sex ? breed.FemaleBonesId : breed.MaleBonesId;
+        var breedLook = LegacyBreedLookParser.Parse(request.Sex ? breed.FemaleLook : breed.MaleLook);
 
         var character = new Character
         {
@@ -157,8 +157,8 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
             Color3 = colors[2],
             Color4 = colors[3],
             Color5 = colors[4],
-            BonesId = bonesId <= 0 ? 1 : bonesId,
-            SkinId = request.CosmeticId > 0 ? request.CosmeticId : 0,
+            BonesId = breedLook.BonesId,
+            SkinId = breedLook.PrimarySkinId,
             CreatedAtUtc = DateTime.UtcNow,
             Stats = new CharacterStats
             {
@@ -185,7 +185,7 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
 
         return new CharacterCreationResult(
             ResultOk,
-            new CharacterSummary(
+            CreateCharacterSummary(
                 character.Id,
                 character.Name,
                 character.Level,
@@ -194,7 +194,13 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
                 character.BonesId,
                 character.SkinId,
                 character.CosmeticId,
-                colors.Where(color => color > 0).ToArray()));
+                breed.MaleLook,
+                breed.FemaleLook,
+                colors[0],
+                colors[1],
+                colors[2],
+                colors[3],
+                colors[4]));
     }
 
     public async Task<CharacterSelectionContext?> GetSelectionContextAsync(
@@ -209,6 +215,7 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
             .AsNoTracking()
             .Include(current => current.Stats)
             .Include(current => current.Position)
+            .Include(current => current.Breed)
             .FirstOrDefaultAsync(
                 current =>
                     current.Id == characterId &&
@@ -249,7 +256,7 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
             : AppDataContextHardcode.DefaultSpawnDirection;
 
         return new CharacterSelectionContext(
-            new CharacterSummary(
+            CreateCharacterSummary(
                 character.Id,
                 character.Name,
                 character.Level,
@@ -258,7 +265,13 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
                 character.BonesId,
                 character.SkinId,
                 character.CosmeticId,
-                indexedColors),
+                character.Breed.MaleLook,
+                character.Breed.FemaleLook,
+                character.Color1,
+                character.Color2,
+                character.Color3,
+                character.Color4,
+                character.Color5),
             character.Experience,
             stats?.Kamas ?? 0,
             stats?.StatsPoints ?? 0,
@@ -345,5 +358,55 @@ public sealed class CharacterDirectoryService : ICharacterDirectoryService
         }
 
         return normalized;
+    }
+
+    private static CharacterSummary CreateCharacterSummary(
+        long id,
+        string name,
+        short level,
+        byte breedId,
+        bool sex,
+        int storedBonesId,
+        int storedSkinId,
+        short cosmeticId,
+        string maleLook,
+        string femaleLook,
+        int color1,
+        int color2,
+        int color3,
+        int color4,
+        int color5)
+    {
+        var breedLook = LegacyBreedLookParser.Parse(sex ? femaleLook : maleLook);
+        var indexedColors = new[]
+        {
+            color1,
+            color2,
+            color3,
+            color4,
+            color5
+        }
+        .Where(color => color > 0)
+        .ToArray();
+
+        var normalizedSkinId = breedLook.PrimarySkinId > 0
+            ? breedLook.PrimarySkinId
+            : storedSkinId;
+
+        var normalizedBonesId = breedLook.BonesId > 0
+            ? breedLook.BonesId
+            : (storedBonesId > 0 ? storedBonesId : 1);
+
+        return new CharacterSummary(
+            id,
+            name,
+            level,
+            breedId,
+            sex,
+            normalizedBonesId,
+            normalizedSkinId,
+            breedLook.ScalePercent,
+            cosmeticId,
+            indexedColors);
     }
 }

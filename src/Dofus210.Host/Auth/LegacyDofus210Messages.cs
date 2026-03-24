@@ -776,7 +776,7 @@ public static class LegacyDofus210Messages
         }
 
         writer.WriteUnsignedShort(1);
-        writer.WriteVarShort(100);
+        writer.WriteVarShort(character.ScalePercent);
         writer.WriteUnsignedShort(0);
     }
 

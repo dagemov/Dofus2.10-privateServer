@@ -1,4 +1,5 @@
 using Dofus210.Data.Entities;
+using Dofus210.Helper.EntityLook;
 
 namespace Dofus210.Data.Context;
 
@@ -45,21 +46,21 @@ public static class AppDataContextHardcode
 
     public static IReadOnlyCollection<Breed> Breeds { get; } =
     [
-        CreateBreed(1, "Feca"),
-        CreateBreed(2, "Osamodas"),
-        CreateBreed(3, "Enutrof"),
-        CreateBreed(4, "Sram"),
-        CreateBreed(5, "Xelor"),
-        CreateBreed(6, "Ecaflip"),
-        CreateBreed(7, "Eniripsa"),
-        CreateBreed(8, "Iop"),
-        CreateBreed(9, "Cra"),
-        CreateBreed(10, "Sadida"),
-        CreateBreed(11, "Sacrieur"),
-        CreateBreed(12, "Pandawa"),
-        CreateBreed(13, "Roublard"),
-        CreateBreed(14, "Zobal"),
-        CreateBreed(15, "Steamer")
+        CreateBreed(1, "Feca", "{1|10||135}", "{1|11||125}"),
+        CreateBreed(2, "Osamodas", "{1|20||130}", "{1|21||125}"),
+        CreateBreed(3, "Enutrof", "{1|30||120}", "{1|31||95}"),
+        CreateBreed(4, "Sram", "{1|40||140}", "{1|41||155}"),
+        CreateBreed(5, "Xelor", "{1|50||110}", "{1|51||110}"),
+        CreateBreed(6, "Ecaflip", "{1|60||150}", "{1|61||150}"),
+        CreateBreed(7, "Eniripsa", "{1|70||110}", "{1|71||115}"),
+        CreateBreed(8, "Iop", "{1|80||140}", "{1|81||140}"),
+        CreateBreed(9, "Cra", "{1|90||140}", "{1|91||135}"),
+        CreateBreed(10, "Sadida", "{1|100||150}", "{1|101||145}"),
+        CreateBreed(11, "Sacrieur", "{1|110||145}", "{1|111||140}"),
+        CreateBreed(12, "Pandawa", "{1|120||160}", "{1|121||145}"),
+        CreateBreed(13, "Roublard", "{1|1405||160}", "{1|1407||155}"),
+        CreateBreed(14, "Zobal", "{1|1437||150}", "{1|1438||145}"),
+        CreateBreed(15, "Steamer", "{1|1663||160}", "{1|1664||160}")
     ];
 
     public static IReadOnlyCollection<GameServer> GameServers { get; } =
@@ -79,17 +80,19 @@ public static class AppDataContextHardcode
         }
     ];
 
-    private static Breed CreateBreed(byte id, string name)
+    private static Breed CreateBreed(byte id, string name, string maleLook, string femaleLook)
     {
-        // These look values are placeholders until the D2O importer is in place.
+        var maleDescriptor = LegacyBreedLookParser.Parse(maleLook);
+        var femaleDescriptor = LegacyBreedLookParser.Parse(femaleLook);
+
         return new Breed
         {
             Id = id,
             Name = name,
-            MaleLook = string.Empty,
-            FemaleLook = string.Empty,
-            MaleBonesId = id,
-            FemaleBonesId = id,
+            MaleLook = maleLook,
+            FemaleLook = femaleLook,
+            MaleBonesId = maleDescriptor.BonesId,
+            FemaleBonesId = femaleDescriptor.BonesId,
             IsPlayable = true
         };
     }
