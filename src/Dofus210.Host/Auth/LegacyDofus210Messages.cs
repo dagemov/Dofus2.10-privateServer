@@ -436,17 +436,19 @@ public static class LegacyDofus210Messages
     {
         using var writer = new DofusDataWriter();
         var flags = (byte)0;
-        flags = SetFlag(flags, 0, account.IsGameMaster);
+        flags = SetFlag(flags, 0, false);
         flags = SetFlag(flags, 1, false);
+        flags = SetFlag(flags, 2, false);
 
         writer.WriteByte(flags);
         writer.WriteUtf(account.Username);
         writer.WriteUtf(string.IsNullOrWhiteSpace(account.Nickname) ? account.Username : account.Nickname);
+        writer.WriteUtf(string.Empty);
         writer.WriteInt(account.Id);
         writer.WriteByte(communityId);
-        writer.WriteUtf(string.Empty);
         writer.WriteDouble(0);
         writer.WriteDouble(new DateTimeOffset(account.CreatedAtUtc).ToUnixTimeMilliseconds());
+        writer.WriteByte(0);
 
         return DofusPacketCodec.Encode(DofusMessageIds.IdentificationSuccess, writer.ToArray());
     }
@@ -465,6 +467,69 @@ public static class LegacyDofus210Messages
         writer.WriteBoolean(servers.Any(server => server.CanCreateNewCharacter));
 
         return DofusPacketCodec.Encode(DofusMessageIds.ServersList, writer.ToArray());
+    }
+
+    public static string DescribeIdentificationSuccessPacket(byte[] packet)
+    {
+        return DescribePacket(
+            packet,
+            static (payload, reader, lines) =>
+            {
+                var flagsOffset = GetOffset(payload, reader);
+                var flags = reader.ReadByte();
+                lines.Add(
+                    DescribeField(
+                        payload,
+                        flagsOffset,
+                        GetOffset(payload, reader),
+                        "flags",
+                        $"hasRights={GetFlag(flags, 0)} hasForceRight={GetFlag(flags, 1)} wasAlreadyConnected={GetFlag(flags, 2)}"));
+
+                ReadUtfField(payload, reader, lines, "login");
+                ReadUtfField(payload, reader, lines, "accountTag.nickname");
+                ReadUtfField(payload, reader, lines, "accountTag.tagNumber");
+                ReadIntField(payload, reader, lines, "accountId");
+                ReadByteField(payload, reader, lines, "communityId");
+                ReadDoubleField(payload, reader, lines, "subscriptionEndDate");
+                ReadDoubleField(payload, reader, lines, "accountCreation");
+                ReadByteField(payload, reader, lines, "havenbagAvailableRoom");
+            });
+    }
+
+    public static string DescribeServersListPacket(byte[] packet)
+    {
+        return DescribePacket(
+            packet,
+            static (payload, reader, lines) =>
+            {
+                var count = ReadUnsignedShortField(payload, reader, lines, "serversCount");
+
+                for (var index = 0; index < count; index++)
+                {
+                    var label = $"servers[{index}]";
+                    var flagsOffset = GetOffset(payload, reader);
+                    var flags = reader.ReadByte();
+                    var flag0 = GetFlag(flags, 0);
+                    var flag1 = GetFlag(flags, 1);
+                    lines.Add(
+                        DescribeField(
+                            payload,
+                            flagsOffset,
+                            GetOffset(payload, reader),
+                            $"{label}.flags",
+                            $"flag0={flag0} flag1={flag1} baseline(selectable={flag0},mono={flag1}) alt(selectable={flag1},mono={flag0})"));
+
+                    ReadUnsignedShortField(payload, reader, lines, $"{label}.id");
+                    ReadByteField(payload, reader, lines, $"{label}.type");
+                    ReadByteField(payload, reader, lines, $"{label}.status");
+                    ReadByteField(payload, reader, lines, $"{label}.completion");
+                    ReadByteField(payload, reader, lines, $"{label}.charactersCount");
+                    ReadByteField(payload, reader, lines, $"{label}.characterCapacity");
+                    ReadDoubleField(payload, reader, lines, $"{label}.date");
+                }
+
+                ReadBooleanField(payload, reader, lines, "canCreateNewCharacter");
+            });
     }
 
     public static byte[] CreateSelectedServerDataPacket(GameServerSummary server, AuthTicketSession ticketSession)
@@ -887,11 +952,15 @@ public static class LegacyDofus210Messages
     private static void WriteGameServerInformations(DofusDataWriter writer, GameServerSummary server)
     {
         var flags = (byte)0;
-        flags = SetFlag(flags, 0, false);
-        flags = SetFlag(flags, 1, true);
+
+        // bit 0 = selectable
+        flags = SetFlag(flags, 0, true);
+
+        // bit 1 = mono-account
+        flags = SetFlag(flags, 1, false);
 
         writer.WriteByte(flags);
-        writer.WriteVarShort(server.Id);
+        writer.WriteUnsignedShort((ushort)server.Id);
         writer.WriteByte(server.Type);
         writer.WriteByte(server.Status);
         writer.WriteByte(server.Completion);
@@ -1073,5 +1142,132 @@ public static class LegacyDofus210Messages
         }
 
         return ticket;
+    }
+
+    private static string DescribePacket(
+        byte[] packet,
+        Action<byte[], DofusDataReader, List<string>> payloadDescriber)
+    {
+        if (!DofusPacketCodec.TryDecode(packet, out var decodedPacket) || decodedPacket is null)
+        {
+            return $"Unable to decode packet. Hex={Convert.ToHexString(packet)}";
+        }
+
+        var payload = decodedPacket.Payload;
+        var reader = new DofusDataReader(payload);
+        var lines = new List<string>
+        {
+            $"packetHex={Convert.ToHexString(packet)}",
+            $"messageId={decodedPacket.MessageId}",
+            $"payloadHex={Convert.ToHexString(payload)}"
+        };
+
+        payloadDescriber(payload, reader, lines);
+
+        if (reader.Remaining > 0)
+        {
+            var trailingOffset = payload.Length - reader.Remaining;
+            lines.Add(
+                DescribeField(
+                    payload,
+                    trailingOffset,
+                    payload.Length,
+                    "trailingBytes",
+                    $"{reader.Remaining} unread byte(s)"));
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static int ReadUnsignedShortField(
+        byte[] payload,
+        DofusDataReader reader,
+        List<string> lines,
+        string name)
+    {
+        var start = GetOffset(payload, reader);
+        var value = reader.ReadUnsignedShort();
+        lines.Add(DescribeField(payload, start, GetOffset(payload, reader), name, value.ToString()));
+        return value;
+    }
+
+    private static void ReadUtfField(
+        byte[] payload,
+        DofusDataReader reader,
+        List<string> lines,
+        string name)
+    {
+        var start = GetOffset(payload, reader);
+        var value = reader.ReadUtf();
+        lines.Add(DescribeField(payload, start, GetOffset(payload, reader), name, $"\"{value}\""));
+    }
+
+    private static void ReadIntField(
+        byte[] payload,
+        DofusDataReader reader,
+        List<string> lines,
+        string name)
+    {
+        var start = GetOffset(payload, reader);
+        var value = reader.ReadInt();
+        lines.Add(DescribeField(payload, start, GetOffset(payload, reader), name, value.ToString()));
+    }
+
+    private static void ReadByteField(
+        byte[] payload,
+        DofusDataReader reader,
+        List<string> lines,
+        string name)
+    {
+        var start = GetOffset(payload, reader);
+        var value = reader.ReadByte();
+        lines.Add(DescribeField(payload, start, GetOffset(payload, reader), name, value.ToString()));
+    }
+
+    private static void ReadBooleanField(
+        byte[] payload,
+        DofusDataReader reader,
+        List<string> lines,
+        string name)
+    {
+        var start = GetOffset(payload, reader);
+        var value = reader.ReadBoolean();
+        lines.Add(DescribeField(payload, start, GetOffset(payload, reader), name, value.ToString()));
+    }
+
+    private static void ReadDoubleField(
+        byte[] payload,
+        DofusDataReader reader,
+        List<string> lines,
+        string name)
+    {
+        var start = GetOffset(payload, reader);
+        var value = reader.ReadDouble();
+        lines.Add(DescribeField(payload, start, GetOffset(payload, reader), name, value.ToString("R")));
+    }
+
+    private static int GetOffset(byte[] payload, DofusDataReader reader)
+    {
+        return payload.Length - reader.Remaining;
+    }
+
+    private static bool GetFlag(byte value, int bit)
+    {
+        return (value & (1 << bit)) != 0;
+    }
+
+    private static string DescribeField(
+        byte[] payload,
+        int startInclusive,
+        int endExclusive,
+        string name,
+        string value)
+    {
+        var length = Math.Max(0, endExclusive - startInclusive);
+        var hex = length > 0
+            ? Convert.ToHexString(payload.AsSpan(startInclusive, length))
+            : string.Empty;
+
+        return $"offset={startInclusive:D3} len={length:D2} field={name} hex={hex} value={value}";
     }
 }

@@ -263,14 +263,25 @@ public sealed class AuthServerHostedService : BackgroundService
         if (!state.BootstrapSent &&
             CapturedAuthBootstrapPackets.TryGet(_serverOptions.AuthBootstrapProfile, out var capturedPackets))
         {
-            foreach (var capturedPacket in capturedPackets)
+            for (var packetIndex = 0; packetIndex < capturedPackets.Count; packetIndex++)
             {
+                var capturedPacket = capturedPackets[packetIndex];
+
                 await SendPayloadAsync(
                     stream,
                     connectionId,
                     remoteEndPoint,
                     capturedPacket,
                     cancellationToken);
+
+                _logger.LogInformation(
+                    "Captured auth bootstrap packet sent. ConnectionId={ConnectionId} Profile={Profile} PacketIndex={PacketIndex} MessageId={MessageId} Bytes={Bytes} Hex={Hex}",
+                    connectionId,
+                    _serverOptions.AuthBootstrapProfile,
+                    packetIndex,
+                    TryGetMessageId(capturedPacket),
+                    capturedPacket.Length,
+                    Convert.ToHexString(capturedPacket));
             }
 
             state.BootstrapSent = true;
@@ -375,32 +386,17 @@ public sealed class AuthServerHostedService : BackgroundService
     }
 
     private async Task HandleIdentificationAsync(
-        NetworkStream stream,
-        string connectionId,
-        string remoteEndPoint,
-        ReadOnlyMemory<byte> payload,
-        AuthConnectionState state,
-        IAccountDirectoryService accountDirectoryService,
-        IGameServerDirectoryService gameServerDirectoryService,
-        CancellationToken cancellationToken)
+     NetworkStream stream,
+     string connectionId,
+     string remoteEndPoint,
+     ReadOnlyMemory<byte> payload,
+     AuthConnectionState state,
+     IAccountDirectoryService accountDirectoryService,
+     IGameServerDirectoryService gameServerDirectoryService,
+     CancellationToken cancellationToken)
     {
-        if (!LegacyDofus210Messages.TryReadIdentification(payload.Span, out var identification) ||
-            identification is null)
+        if (!TryParseIdentificationPayload(connectionId, payload.Span, out var identification, out var credentials))
         {
-            _logger.LogWarning(
-                "Legacy IdentificationMessage could not be decoded. ConnectionId={ConnectionId} Hex={Hex}",
-                connectionId,
-                ToHex(payload.Span));
-            return;
-        }
-
-        if (!LegacyDofus210Messages.TryReadCredentials(identification.Credentials, out var credentials) ||
-            credentials is null)
-        {
-            _logger.LogWarning(
-                "Credential blob could not be decoded. ConnectionId={ConnectionId} CredentialsHex={Hex}",
-                connectionId,
-                ToHex(identification.Credentials));
             return;
         }
 
@@ -444,10 +440,68 @@ public sealed class AuthServerHostedService : BackgroundService
             return;
         }
 
-        state.Account = authentication.Account;
+        await SendIdentificationAcceptedFlowAsync(
+            stream,
+            connectionId,
+            remoteEndPoint,
+            state,
+            identification,
+            credentials,
+            authentication.Account,
+            gameServerDirectoryService,
+            cancellationToken);
+    }
+
+    private bool TryParseIdentificationPayload(
+        string connectionId,
+        ReadOnlySpan<byte> payload,
+        out LegacyIdentificationMessage identification,
+        out LegacyCredentialBlob credentials)
+    {
+        identification = null!;
+        credentials = null!;
+
+        if (!LegacyDofus210Messages.TryReadIdentification(payload, out var parsedIdentification) ||
+            parsedIdentification is null)
+        {
+            _logger.LogWarning(
+                "Legacy IdentificationMessage could not be decoded. ConnectionId={ConnectionId} Hex={Hex}",
+                connectionId,
+                ToHex(payload));
+            return false;
+        }
+
+        if (!LegacyDofus210Messages.TryReadCredentials(parsedIdentification.Credentials, out var parsedCredentials) ||
+            parsedCredentials is null)
+        {
+            _logger.LogWarning(
+                "Credential blob could not be decoded. ConnectionId={ConnectionId} CredentialsHex={Hex}",
+                connectionId,
+                ToHex(parsedIdentification.Credentials));
+            return false;
+        }
+
+        identification = parsedIdentification;
+        credentials = parsedCredentials;
+        return true;
+    }
+
+    private async Task SendIdentificationAcceptedFlowAsync(
+        NetworkStream stream,
+        string connectionId,
+        string remoteEndPoint,
+        AuthConnectionState state,
+        LegacyIdentificationMessage identification,
+        LegacyCredentialBlob credentials,
+        AuthenticatedAccount account,
+        IGameServerDirectoryService gameServerDirectoryService,
+        CancellationToken cancellationToken)
+    {
+        state.Account = account;
         state.TicketCipherKey = credentials.AesKey.Length == 32 ? credentials.AesKey : null;
+
         var availableServers = await gameServerDirectoryService.ListForAccountAsync(
-            authentication.Account.Id,
+            account.Id,
             cancellationToken);
 
         await SendPayloadAsync(
@@ -457,38 +511,68 @@ public sealed class AuthServerHostedService : BackgroundService
             LegacyDofus210Messages.CreateCredentialsAcknowledgementPacket(),
             cancellationToken);
 
-        await SendPayloadAsync(
-            stream,
-            connectionId,
-            remoteEndPoint,
-            LegacyDofus210Messages.CreateIdentificationSuccessPacket(
-                authentication.Account,
-                _serverOptions.ServerCommunityId),
-            cancellationToken);
-
-        await SendPayloadAsync(
-            stream,
-            connectionId,
-            remoteEndPoint,
-            LegacyDofus210Messages.CreateServersListPacket(availableServers),
-            cancellationToken);
-
-        foreach (var availableServer in availableServers)
-        {
-            await SendPayloadAsync(
-                stream,
-                connectionId,
-                remoteEndPoint,
-                LegacyDofus210Messages.CreateServerStatusUpdatePacket(availableServer),
-                cancellationToken);
-        }
+        var identificationSuccessPacket = LegacyDofus210Messages.CreateIdentificationSuccessPacket(
+            account,
+            _serverOptions.ServerCommunityId);
 
         _logger.LogInformation(
-            "Identification accepted. ConnectionId={ConnectionId} Username={Username} AccountId={AccountId} PublishedServerIds={PublishedServerIds}",
+            "IdentificationSuccess packet built. ConnectionId={ConnectionId} Bytes={Bytes} Hex={Hex}{NewLine}{Trace}",
             connectionId,
-            authentication.Account.Username,
-            authentication.Account.Id,
-            string.Join(", ", availableServers.Select(server => server.Id)));
+            identificationSuccessPacket.Length,
+            Convert.ToHexString(identificationSuccessPacket),
+            Environment.NewLine,
+            LegacyDofus210Messages.DescribeIdentificationSuccessPacket(identificationSuccessPacket));
+
+        await SendPayloadAsync(
+            stream,
+            connectionId,
+            remoteEndPoint,
+            identificationSuccessPacket,
+            cancellationToken);
+
+        foreach (var server in availableServers)
+        {
+            _logger.LogInformation(
+                "Auth server entry before serialization. ConnectionId={ConnectionId} Id={Id} Name={Name} CommunityId={CommunityId} Type={Type} Status={Status} Completion={Completion} CharactersCount={CharactersCount} CharacterCapacity={CharacterCapacity} CanCreateNewCharacter={CanCreateNewCharacter} Address={Address}:{Port}",
+                connectionId,
+                server.Id,
+                server.Name,
+                server.CommunityId,
+                server.Type,
+                server.Status,
+                server.Completion,
+                server.CharactersCount,
+                server.CharacterCapacity,
+                server.CanCreateNewCharacter,
+                server.Address,
+                server.Port);
+        }
+
+        var serversListPacket = LegacyDofus210Messages.CreateServersListPacket(availableServers);
+
+        _logger.LogInformation(
+            "ServersList packet built. ConnectionId={ConnectionId} Bytes={Bytes} Hex={Hex}{NewLine}{Trace}",
+            connectionId,
+            serversListPacket.Length,
+            Convert.ToHexString(serversListPacket),
+            Environment.NewLine,
+            LegacyDofus210Messages.DescribeServersListPacket(serversListPacket));
+
+        await SendPayloadAsync(
+            stream,
+            connectionId,
+            remoteEndPoint,
+            serversListPacket,
+            cancellationToken);
+
+        _logger.LogInformation(
+            "Identification accepted. ConnectionId={ConnectionId} Username={Username} AccountId={AccountId} PublishedServerIds={PublishedServerIds} RequestedServerId={RequestedServerId} AutoConnect={AutoConnect}",
+            connectionId,
+            account.Username,
+            account.Id,
+            string.Join(", ", availableServers.Select(server => server.Id)),
+            identification.ServerId,
+            identification.AutoConnect);
     }
 
     private async Task HandleServerSelectionAsync(
@@ -747,6 +831,13 @@ public sealed class AuthServerHostedService : BackgroundService
             IOException ioException when ioException.InnerException is SocketException socketException => socketException.SocketErrorCode,
             _ => null
         };
+    }
+
+    private static ushort? TryGetMessageId(byte[] packet)
+    {
+        return DofusPacketCodec.TryDecode(packet, out var decodedPacket) && decodedPacket is not null
+            ? decodedPacket.MessageId
+            : null;
     }
 
     private sealed class AuthConnectionState
