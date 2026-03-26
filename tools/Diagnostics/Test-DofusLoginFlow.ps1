@@ -293,7 +293,8 @@ function Parse-ServersListPayload {
     for ($index = 0; $index -lt $serversCount; $index++) {
         $flags = [int]$Payload[$offset]
         $offset += 1
-        $serverId = Read-VarIntFromBytes -Bytes $Payload -Offset ([ref]$offset)
+        $serverId = ((([int]$Payload[$offset]) -shl 8) -bor ([int]$Payload[$offset + 1]))
+        $offset += 2
         $type = [int]$Payload[$offset]
         $offset += 1
         $status = [int]$Payload[$offset]

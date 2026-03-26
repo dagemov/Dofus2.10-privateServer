@@ -509,15 +509,13 @@ public static class LegacyDofus210Messages
                     var label = $"servers[{index}]";
                     var flagsOffset = GetOffset(payload, reader);
                     var flags = reader.ReadByte();
-                    var flag0 = GetFlag(flags, 0);
-                    var flag1 = GetFlag(flags, 1);
                     lines.Add(
                         DescribeField(
                             payload,
                             flagsOffset,
                             GetOffset(payload, reader),
                             $"{label}.flags",
-                            $"flag0={flag0} flag1={flag1} baseline(selectable={flag0},mono={flag1}) alt(selectable={flag1},mono={flag0})"));
+                            $"isMonoAccount={GetFlag(flags, 0)} isSelectable={GetFlag(flags, 1)}"));
 
                     ReadUnsignedShortField(payload, reader, lines, $"{label}.id");
                     ReadByteField(payload, reader, lines, $"{label}.type");
@@ -953,11 +951,11 @@ public static class LegacyDofus210Messages
     {
         var flags = (byte)0;
 
-        // bit 0 = selectable
-        flags = SetFlag(flags, 0, true);
+        // Alohafus client parser: bit 0 = isMonoAccount
+        flags = SetFlag(flags, 0, false);
 
-        // bit 1 = mono-account
-        flags = SetFlag(flags, 1, false);
+        // Alohafus client parser: bit 1 = isSelectable
+        flags = SetFlag(flags, 1, true);
 
         writer.WriteByte(flags);
         writer.WriteUnsignedShort((ushort)server.Id);
