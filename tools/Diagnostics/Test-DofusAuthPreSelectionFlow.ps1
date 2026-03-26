@@ -277,6 +277,11 @@ function Parse-ServersListPayload {
         }
     }
 
+    $alreadyConnectedToServerId = 0
+    if ($offset -lt $Payload.Length) {
+        $alreadyConnectedToServerId = Read-VarIntFromBytes -Bytes $Payload -Offset ([ref]$offset)
+    }
+
     $canCreateNewCharacter = $false
     if ($offset -lt $Payload.Length) {
         $canCreateNewCharacter = $Payload[$offset] -ne 0
@@ -284,6 +289,7 @@ function Parse-ServersListPayload {
 
     [pscustomobject]@{
         Servers = $servers
+        AlreadyConnectedToServerId = $alreadyConnectedToServerId
         CanCreateNewCharacter = $canCreateNewCharacter
     }
 }
@@ -318,7 +324,7 @@ try {
 
         if ($packet.MessageId -eq 30) {
             $serversList = Parse-ServersListPayload -Payload $packet.Payload
-            "AUTH servers canCreate={0}" -f $serversList.CanCreateNewCharacter
+            "AUTH servers alreadyConnectedToServerId={0} canCreate={1}" -f $serversList.AlreadyConnectedToServerId, $serversList.CanCreateNewCharacter
             foreach ($server in $serversList.Servers) {
                 "AUTH server id={0} selectable={1} mono={2} type={3} status={4} completion={5} chars={6}/{7} date={8}" -f `
                     $server.ServerId, `

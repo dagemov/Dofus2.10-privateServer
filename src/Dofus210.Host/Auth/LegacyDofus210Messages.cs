@@ -464,6 +464,10 @@ public static class LegacyDofus210Messages
             WriteGameServerInformations(writer, server);
         }
 
+        // El cliente Alohafus deserializa:
+        // servers[] -> alreadyConnectedToServerId(varshort) -> canCreateNewCharacter(bool).
+        // Mientras no exista una sesion previa conectada a otro game server, debe viajar 0.
+        writer.WriteVarShort(0);
         writer.WriteBoolean(servers.Any(server => server.CanCreateNewCharacter));
 
         return DofusPacketCodec.Encode(DofusMessageIds.ServersList, writer.ToArray());
@@ -526,6 +530,7 @@ public static class LegacyDofus210Messages
                     ReadDoubleField(payload, reader, lines, $"{label}.date");
                 }
 
+                ReadVarShortField(payload, reader, lines, "alreadyConnectedToServerId");
                 ReadBooleanField(payload, reader, lines, "canCreateNewCharacter");
             });
     }
@@ -1230,6 +1235,17 @@ public static class LegacyDofus210Messages
     {
         var start = GetOffset(payload, reader);
         var value = reader.ReadBoolean();
+        lines.Add(DescribeField(payload, start, GetOffset(payload, reader), name, value.ToString()));
+    }
+
+    private static void ReadVarShortField(
+        byte[] payload,
+        DofusDataReader reader,
+        List<string> lines,
+        string name)
+    {
+        var start = GetOffset(payload, reader);
+        var value = checked((short)reader.ReadVarInt());
         lines.Add(DescribeField(payload, start, GetOffset(payload, reader), name, value.ToString()));
     }
 
