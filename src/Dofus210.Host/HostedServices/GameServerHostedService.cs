@@ -152,6 +152,7 @@ public sealed class GameServerHostedService : BackgroundService
                         if (initialBytesRead > 0)
                         {
                             var initialChunk = buffer.AsSpan(0, initialBytesRead).ToArray();
+                            LogFirstInboundPayloadIfNeeded(state, connectionId, remoteEndPoint, initialChunk);
 
                             if (ContainsPolicyFileRequest(ToSanitizedAscii(initialChunk)))
                             {
@@ -219,6 +220,11 @@ public sealed class GameServerHostedService : BackgroundService
                             break;
                         }
 
+                        LogFirstInboundPayloadIfNeeded(
+                            state,
+                            connectionId,
+                            remoteEndPoint,
+                            buffer.AsSpan(0, bytesRead));
                         packetBuffer.Append(buffer.AsSpan(0, bytesRead));
                         await ProcessBufferedPacketsAsync(
                             packetBuffer,
@@ -375,13 +381,14 @@ public sealed class GameServerHostedService : BackgroundService
                 }
 
                 _logger.LogInformation(
-                    "AuthenticationTicket received. ConnectionId={ConnectionId} Lang={Lang} Ticket={Ticket} Encoding={EncodingMode} RawLength={RawLength} Accepted={Accepted}",
+                    "AuthenticationTicket received. ConnectionId={ConnectionId} Lang={Lang} Ticket={Ticket} Encoding={EncodingMode} RawLength={RawLength} Accepted={Accepted} ResolvedServerId={ResolvedServerId}",
                     connectionId,
                     authTicket.Language,
                     authTicket.Ticket ?? "<null>",
                     authTicket.EncodingMode,
                     authTicket.RawTicketPayload.Length,
-                    ticketAccepted);
+                    ticketAccepted,
+                    ticketAccepted ? ticketSession.GameServerId : (short?)null);
 
                 if (ticketAccepted)
                 {
@@ -415,10 +422,11 @@ public sealed class GameServerHostedService : BackgroundService
                     state.SetKnownCharacters(characters);
 
                     _logger.LogInformation(
-                        "Game approach bootstrap completed. ConnectionId={ConnectionId} AccountId={AccountId} CharacterCount={CharacterCount}",
+                        "Game approach bootstrap completed. ConnectionId={ConnectionId} AccountId={AccountId} CharacterCount={CharacterCount} BootstrapMessageIds={BootstrapMessageIds}",
                         connectionId,
                         state.Account.Id,
-                        characters.Count);
+                        characters.Count,
+                        DescribeMessageIds(approachPackets));
 
                     if (ShouldPushCharactersListDuringApproach())
                     {
@@ -1150,6 +1158,37 @@ public sealed class GameServerHostedService : BackgroundService
         return asciiPayload.Contains("policy-file-request", StringComparison.OrdinalIgnoreCase);
     }
 
+    private void LogFirstInboundPayloadIfNeeded(
+        GameConnectionState state,
+        string connectionId,
+        string remoteEndPoint,
+        ReadOnlySpan<byte> payload)
+    {
+        if (state.FirstInboundPayloadLogged)
+        {
+            return;
+        }
+
+        state.FirstInboundPayloadLogged = true;
+
+        _logger.LogInformation(
+            "First game payload received. ConnectionId={ConnectionId} Remote={RemoteEndPoint} Bytes={Bytes} Hex={Hex}",
+            connectionId,
+            remoteEndPoint,
+            payload.Length,
+            Convert.ToHexString(payload));
+    }
+
+    private static string DescribeMessageIds(IEnumerable<byte[]> packets)
+    {
+        return string.Join(
+            ",",
+            packets.Select(packet =>
+                DofusPacketCodec.TryDecode(packet, out var decodedPacket) && decodedPacket is not null
+                    ? decodedPacket.MessageId.ToString()
+                    : "?"));
+    }
+
     private static bool IsExpectedRemoteDisconnect(Exception exception)
     {
         return exception switch
@@ -1187,6 +1226,8 @@ public sealed class GameServerHostedService : BackgroundService
         public bool IsCharacterLoadingCompleted { get; set; }
 
         public int NextBasicAckSequence { get; set; }
+
+        public bool FirstInboundPayloadLogged { get; set; }
 
         public HashSet<long> KnownCharacterIds { get; } = [];
 

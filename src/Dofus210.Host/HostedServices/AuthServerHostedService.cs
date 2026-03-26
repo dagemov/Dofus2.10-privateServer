@@ -542,11 +542,35 @@ public sealed class AuthServerHostedService : BackgroundService
             return;
         }
 
+        _logger.LogInformation(
+            "Server selection resolved. ConnectionId={ConnectionId} AccountId={AccountId} ServerId={ServerId} Name={Name} CommunityId={CommunityId} Type={Type} Status={Status} Completion={Completion} Address={Address}:{Port} CharactersCount={CharactersCount}/{CharacterCapacity}",
+            connectionId,
+            state.Account.Id,
+            selectedServer.Id,
+            selectedServer.Name,
+            selectedServer.CommunityId,
+            selectedServer.Type,
+            selectedServer.Status,
+            selectedServer.Completion,
+            selectedServer.Address,
+            selectedServer.Port,
+            selectedServer.CharactersCount,
+            selectedServer.CharacterCapacity);
+
         var ticketSession = _authTicketStore.Issue(
             state.Account,
             selectedServer.Id,
             _serverOptions.GameTicketTimeToLiveMinutes,
             state.TicketCipherKey);
+
+        _logger.LogInformation(
+            "Ticket issued. ConnectionId={ConnectionId} AccountId={AccountId} ServerId={ServerId} Ticket={Ticket} TicketPayloadLength={TicketPayloadLength} ExpiresAtUtc={ExpiresAtUtc:O}",
+            connectionId,
+            state.Account.Id,
+            ticketSession.GameServerId,
+            ticketSession.Ticket,
+            ticketSession.TicketPayload.Length,
+            ticketSession.ExpiresAtUtc);
 
         await SendPayloadAsync(
             stream,
@@ -556,12 +580,14 @@ public sealed class AuthServerHostedService : BackgroundService
             cancellationToken);
 
         _logger.LogInformation(
-            "SelectedServerData sent. ConnectionId={ConnectionId} ServerId={ServerId} Ticket={Ticket} GameAddress={Address}:{Port}",
+            "SelectedServerData sent. ConnectionId={ConnectionId} ServerId={ServerId} Ticket={Ticket} TicketPayloadLength={TicketPayloadLength} GameAddress={Address}:{Port} ExpiresAtUtc={ExpiresAtUtc:O}",
             connectionId,
             requestedServerId,
             ticketSession.Ticket,
+            ticketSession.TicketPayload.Length,
             selectedServer.Address,
-            selectedServer.Port);
+            selectedServer.Port,
+            ticketSession.ExpiresAtUtc);
 
         state.CloseAfterCurrentPacket = true;
     }
