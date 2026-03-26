@@ -4,7 +4,7 @@ public sealed class ServerOptions
 {
     public const string SectionName = "Server";
 
-    public string Name { get; set; } = "Henual";
+    public string Name { get; set; } = "Aloha";
 
     public string Host { get; set; } = "127.0.0.1";
 
@@ -36,9 +36,9 @@ public sealed class ServerOptions
 
     public string GameTranscriptDirectory { get; set; } = "..\\..\\runtime\\game";
 
-    public short GameServerId { get; set; } = 4001;
+    public short GameServerId { get; set; } = 1;
 
-    public byte ServerCommunityId { get; set; } = 4;
+    public byte ServerCommunityId { get; set; } = 0;
 
     public string GameServerAddress { get; set; } = "127.0.0.1";
 
@@ -54,7 +54,7 @@ public sealed class ServerOptions
 
     public int GameTicketTimeToLiveMinutes { get; set; } = 5;
 
-    public string GameApproachProfile { get; set; } = "GinyAckPushList";
+    public string GameApproachProfile { get; set; } = "MinimalClassic";
 
     public bool GameSendProtocolRequiredOnConnect { get; set; }
 

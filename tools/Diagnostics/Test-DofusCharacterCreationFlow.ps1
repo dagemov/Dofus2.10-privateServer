@@ -349,7 +349,7 @@ try {
         $packet = Read-Packet -Stream $authStream
 
         if ($packet.MessageId -eq 30) {
-            $selectionPacket = Encode-Packet -MessageId 40 -Payload (New-ServerSelectionPayload -ServerId 4001)
+            $selectionPacket = Encode-Packet -MessageId 40 -Payload (New-ServerSelectionPayload -ServerId 1)
             $authStream.Write($selectionPacket, 0, $selectionPacket.Length)
             continue
         }

@@ -19,6 +19,7 @@ public sealed class AppDataContextInitializer : IAppDataContextInitializer
         await SynchronizeHardcodedAccountsAsync(cancellationToken);
         await SynchronizeHardcodedBreedsAsync(cancellationToken);
         await SynchronizeHardcodedGameServersAsync(cancellationToken);
+        await NormalizeLegacyGameServerReferencesAsync(cancellationToken);
         await NormalizeCharacterLooksAsync(cancellationToken);
         await NormalizeSpawnPositionsAsync(cancellationToken);
 
@@ -188,6 +189,68 @@ public sealed class AppDataContextInitializer : IAppDataContextInitializer
         {
             await _context.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    private async Task NormalizeLegacyGameServerReferencesAsync(CancellationToken cancellationToken)
+    {
+        var legacyServerIds = AppDataContextHardcode.LegacyLocalGameServerIds
+            .Where(serverId => serverId != AppDataContextHardcode.DefaultGameServerId)
+            .ToArray();
+
+        if (legacyServerIds.Length == 0)
+        {
+            return;
+        }
+
+        var canonicalServer = AppDataContextHardcode.GameServers.Single(server => server.Id == AppDataContextHardcode.DefaultGameServerId);
+        var legacyServerIdsSql = string.Join(", ", legacyServerIds);
+
+#pragma warning disable EF1002 // The IN-list is built only from hardcoded local legacy ids under our control.
+        await _context.Database.ExecuteSqlRawAsync(
+            $"""
+            UPDATE [Characters]
+            SET [GameServerId] = {AppDataContextHardcode.DefaultGameServerId}
+            WHERE [GameServerId] IN ({legacyServerIdsSql});
+            """,
+            cancellationToken);
+
+        await _context.Database.ExecuteSqlRawAsync(
+            """
+            UPDATE [GameServers]
+            SET
+                [Name] = {0},
+                [Address] = {1},
+                [Port] = {2},
+                [CommunityId] = {3},
+                [Type] = {4},
+                [Status] = {5},
+                [Completion] = {6},
+                [CharacterCapacity] = {7},
+                [CanCreateNewCharacter] = {8}
+            WHERE [Id] = {9};
+            """,
+            parameters:
+            [
+                canonicalServer.Name,
+                canonicalServer.Address,
+                canonicalServer.Port,
+                canonicalServer.CommunityId,
+                canonicalServer.Type,
+                canonicalServer.Status,
+                canonicalServer.Completion,
+                canonicalServer.CharacterCapacity,
+                canonicalServer.CanCreateNewCharacter,
+                canonicalServer.Id
+            ],
+            cancellationToken: cancellationToken);
+
+        await _context.Database.ExecuteSqlRawAsync(
+            $"""
+            DELETE FROM [GameServers]
+            WHERE [Id] IN ({legacyServerIdsSql});
+            """,
+            cancellationToken);
+#pragma warning restore EF1002
     }
 
     private static bool CopyValuesIfNeeded(Account target, Account source)

@@ -8,6 +8,17 @@ public static class AppDataContextHardcode
     public const string SqlServerConnectionString =
         "Server=DAGEMOV\\SQLEXPRESS;Database=Dofus2.10;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 
+    public const short DefaultGameServerId = 1;
+
+    public static IReadOnlySet<short> LegacyLocalGameServerIds { get; } = new HashSet<short>
+    {
+        1,
+        12,
+        250,
+        4001,
+        4002
+    };
+
     // This map id was verified to exist in the local client map archives as 1/80217091.dlm.
     public const int DefaultSpawnMapId = 80217091;
 
@@ -67,11 +78,11 @@ public static class AppDataContextHardcode
     [
         new GameServer
         {
-            Id = 4001,
-            Name = "Henual",
+            Id = DefaultGameServerId,
+            Name = "Aloha",
             Address = "127.0.0.1",
             Port = 5556,
-            CommunityId = 4,
+            CommunityId = 0,
             Type = 0,
             Status = 3,
             Completion = 0,
