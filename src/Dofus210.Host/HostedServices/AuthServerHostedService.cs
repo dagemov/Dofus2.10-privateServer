@@ -125,8 +125,13 @@ public sealed class AuthServerHostedService : BackgroundService
                         if (bytesRead == 0)
                         {
                             _logger.LogInformation(
-                                "Auth client disconnected cleanly. ConnectionId={ConnectionId}",
-                                connectionId);
+                                "Auth client disconnected cleanly. ConnectionId={ConnectionId} IdentificationAccepted={IdentificationAccepted} ServersListSent={ServersListSent} ServerSelectionReceived={ServerSelectionReceived}",
+                                connectionId,
+                                state.IdentificationAccepted,
+                                state.ServersListSent,
+                                state.ServerSelectionReceived);
+
+                            LogPrematurePostListDisconnect(connectionId, state);
                             break;
                         }
 
@@ -225,16 +230,26 @@ public sealed class AuthServerHostedService : BackgroundService
             catch (IOException exception) when (IsExpectedRemoteDisconnect(exception))
             {
                 _logger.LogInformation(
-                    "Auth client closed the connection during session flow. ConnectionId={ConnectionId} Reason={Reason}",
+                    "Auth client closed the connection during session flow. ConnectionId={ConnectionId} Reason={Reason} IdentificationAccepted={IdentificationAccepted} ServersListSent={ServersListSent} ServerSelectionReceived={ServerSelectionReceived}",
                     connectionId,
-                    ExtractSocketError(exception)?.ToString() ?? exception.GetType().Name);
+                    ExtractSocketError(exception)?.ToString() ?? exception.GetType().Name,
+                    state.IdentificationAccepted,
+                    state.ServersListSent,
+                    state.ServerSelectionReceived);
+
+                LogPrematurePostListDisconnect(connectionId, state);
             }
             catch (SocketException exception) when (IsExpectedRemoteDisconnect(exception))
             {
                 _logger.LogInformation(
-                    "Auth client closed the socket during session flow. ConnectionId={ConnectionId} Reason={Reason}",
+                    "Auth client closed the socket during session flow. ConnectionId={ConnectionId} Reason={Reason} IdentificationAccepted={IdentificationAccepted} ServersListSent={ServersListSent} ServerSelectionReceived={ServerSelectionReceived}",
                     connectionId,
-                    exception.SocketErrorCode);
+                    exception.SocketErrorCode,
+                    state.IdentificationAccepted,
+                    state.ServersListSent,
+                    state.ServerSelectionReceived);
+
+                LogPrematurePostListDisconnect(connectionId, state);
             }
             catch (Exception exception)
             {
@@ -260,38 +275,15 @@ public sealed class AuthServerHostedService : BackgroundService
             packet.MessageId,
             packet.PayloadLength);
 
-        if (!state.BootstrapSent &&
-            CapturedAuthBootstrapPackets.TryGet(_serverOptions.AuthBootstrapProfile, out var capturedPackets))
-        {
-            for (var packetIndex = 0; packetIndex < capturedPackets.Count; packetIndex++)
-            {
-                var capturedPacket = capturedPackets[packetIndex];
-
-                await SendPayloadAsync(
-                    stream,
-                    connectionId,
-                    remoteEndPoint,
-                    capturedPacket,
-                    cancellationToken);
-
-                _logger.LogInformation(
-                    "Captured auth bootstrap packet sent. ConnectionId={ConnectionId} Profile={Profile} PacketIndex={PacketIndex} MessageId={MessageId} Bytes={Bytes} Hex={Hex}",
-                    connectionId,
-                    _serverOptions.AuthBootstrapProfile,
-                    packetIndex,
-                    TryGetMessageId(capturedPacket),
-                    capturedPacket.Length,
-                    Convert.ToHexString(capturedPacket));
-            }
-
-            state.BootstrapSent = true;
-
-            _logger.LogInformation(
-                "Captured auth bootstrap sent. ConnectionId={ConnectionId} Profile={Profile} PacketCount={PacketCount}",
+        if (await TrySendBootstrapProfileAsync(
+                stream,
                 connectionId,
-                _serverOptions.AuthBootstrapProfile,
-                capturedPackets.Count);
-
+                remoteEndPoint,
+                packet,
+                state,
+                handshakePayloads,
+                cancellationToken))
+        {
             return;
         }
 
@@ -452,6 +444,80 @@ public sealed class AuthServerHostedService : BackgroundService
             cancellationToken);
     }
 
+    private async Task<bool> TrySendBootstrapProfileAsync(
+        NetworkStream stream,
+        string connectionId,
+        string remoteEndPoint,
+        DofusPacket incomingPacket,
+        AuthConnectionState state,
+        AuthHandshakePayloads handshakePayloads,
+        CancellationToken cancellationToken)
+    {
+        if (state.BootstrapSent)
+        {
+            return false;
+        }
+
+        var bootstrapProfile = CapturedAuthBootstrapPackets.CreateProfile(
+            _serverOptions.AuthBootstrapProfile,
+            handshakePayloads);
+
+        if (!state.BootstrapProfileLogged)
+        {
+            _logger.LogInformation(
+                "Auth bootstrap profile resolved. ConnectionId={ConnectionId} Profile={Profile} PacketCount={PacketCount} MarkBootstrapSent={MarkBootstrapSent} ReturnAfterSend={ReturnAfterSend} Description={Description}",
+                connectionId,
+                bootstrapProfile.Name,
+                bootstrapProfile.Packets.Count,
+                bootstrapProfile.MarkBootstrapSent,
+                bootstrapProfile.ReturnAfterSend,
+                bootstrapProfile.Description);
+
+            state.BootstrapProfileLogged = true;
+        }
+
+        if (bootstrapProfile.Packets.Count == 0)
+        {
+            return false;
+        }
+
+        for (var packetIndex = 0; packetIndex < bootstrapProfile.Packets.Count; packetIndex++)
+        {
+            var bootstrapPacket = bootstrapProfile.Packets[packetIndex];
+
+            await SendPayloadAsync(
+                stream,
+                connectionId,
+                remoteEndPoint,
+                bootstrapPacket.Bytes,
+                cancellationToken);
+
+            _logger.LogInformation(
+                "Auth bootstrap packet sent. ConnectionId={ConnectionId} Profile={Profile} PacketIndex={PacketIndex} IncomingMessageId={IncomingMessageId} Label={Label} MessageId={MessageId} Bytes={Bytes} Summary={Summary}",
+                connectionId,
+                bootstrapProfile.Name,
+                packetIndex,
+                incomingPacket.MessageId,
+                bootstrapPacket.Label,
+                bootstrapPacket.MessageId,
+                bootstrapPacket.Bytes.Length,
+                bootstrapPacket.Summary);
+        }
+
+        if (bootstrapProfile.MarkBootstrapSent)
+        {
+            state.BootstrapSent = true;
+        }
+
+        _logger.LogInformation(
+            "Auth bootstrap profile applied. ConnectionId={ConnectionId} Profile={Profile} PacketCount={PacketCount}",
+            connectionId,
+            bootstrapProfile.Name,
+            bootstrapProfile.Packets.Count);
+
+        return bootstrapProfile.ReturnAfterSend;
+    }
+
     private bool TryParseIdentificationPayload(
         string connectionId,
         ReadOnlySpan<byte> payload,
@@ -565,6 +631,9 @@ public sealed class AuthServerHostedService : BackgroundService
             serversListPacket,
             cancellationToken);
 
+        state.IdentificationAccepted = true;
+        state.ServersListSent = true;
+
         _logger.LogInformation(
             "Identification accepted. ConnectionId={ConnectionId} Username={Username} AccountId={AccountId} PublishedServerIds={PublishedServerIds} RequestedServerId={RequestedServerId} AutoConnect={AutoConnect}",
             connectionId,
@@ -590,6 +659,8 @@ public sealed class AuthServerHostedService : BackgroundService
             "Server selection received. ConnectionId={ConnectionId} RequestedServerId={ServerId}",
             connectionId,
             requestedServerId);
+
+        state.ServerSelectionReceived = true;
 
         if (state.Account is null)
         {
@@ -833,16 +904,21 @@ public sealed class AuthServerHostedService : BackgroundService
         };
     }
 
-    private static ushort? TryGetMessageId(byte[] packet)
+    private void LogPrematurePostListDisconnect(string connectionId, AuthConnectionState state)
     {
-        return DofusPacketCodec.TryDecode(packet, out var decodedPacket) && decodedPacket is not null
-            ? decodedPacket.MessageId
-            : null;
+        if (state.IdentificationAccepted && state.ServersListSent && !state.ServerSelectionReceived)
+        {
+            _logger.LogWarning(
+                "Auth session ended after ServersList but before ServerSelection. ConnectionId={ConnectionId}",
+                connectionId);
+        }
     }
 
     private sealed class AuthConnectionState
     {
         public bool BootstrapSent { get; set; }
+
+        public bool BootstrapProfileLogged { get; set; }
 
         public string ClientKey { get; set; } = string.Empty;
 
@@ -851,5 +927,11 @@ public sealed class AuthServerHostedService : BackgroundService
         public bool CloseAfterCurrentPacket { get; set; }
 
         public byte[]? TicketCipherKey { get; set; }
+
+        public bool IdentificationAccepted { get; set; }
+
+        public bool ServersListSent { get; set; }
+
+        public bool ServerSelectionReceived { get; set; }
     }
 }
