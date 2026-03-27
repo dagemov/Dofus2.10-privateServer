@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Definition SYSTEM "../dtd/ui.dtd">
-<Definition useCache="true" debug="false">
+<Definition useCache="false" debug="false">
 	
 	<Import url="[config.mod.template]button/simpleButton.xml" />
 	<Import url="[config.mod.template]button/labelCheckBox.xml" />
