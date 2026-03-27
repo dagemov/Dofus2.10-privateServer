@@ -1,0 +1,657 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Definition SYSTEM "../dtd/ui.dtd">
+<Definition useCache="true" debug="false">
+	
+	<Import url="[config.mod.template]button/simpleButton.xml" />
+	<Import url="[config.mod.template]button/labelCheckBox.xml" />
+	<Import url="[config.mod.template]button/iconButton.xml" />
+	<Import url="[config.mod.template]button/greyButton.xml" />
+	
+	<Constants>
+		<Constant name="assets" value="[config.ui.skin]assets.swf|" />
+		<Constant name="css" value="[config.ui.skin]css/" />
+				
+		<Constant name="gifts_uri" value="[config.content.path]gfx/subscriberGifts/" />
+	</Constants>
+	
+	<Container name="ui_login">
+		<Size>
+			<RelDimension x="1" y="1" />
+		</Size>		
+	
+		
+		
+		<!-- Window Container -->
+		<Container name="wnd">	
+			<Anchors>
+				<Anchor point="CENTER" relativePoint="CENTER" />
+			</Anchors>
+			
+			<!-- Background texture-->
+			<Texture strata="LOW" name="tx_background" >
+				<Anchors>
+					<Anchor point="TOP" relativePoint="TOP">
+						<AbsDimension x="0" y="-35" />
+					</Anchor>
+				</Anchors>
+				<Size>
+				    <AbsDimension x="665" y="892" />
+				</Size>
+				<uri>[local.assets]login_tx_background</uri>
+			</Texture>
+			
+			<Container strata="LOW" name="tx_background_helper">
+			    <Anchors>
+                    <Anchor point="TOP" relativePoint="TOP">
+                        <AbsDimension x="0" y="100" />
+                    </Anchor>
+                </Anchors>
+			    <Size>
+                    <AbsDimension x="665" y="760" />
+                </Size>
+                <bgColor>0</bgColor>
+                <visible>false</visible>
+			</Container>
+			
+			<!-- Logo DOFUS -->
+			<Texture name="tx_logo">
+				<Anchors>
+					<Anchor relativeTo="tx_background_helper" >
+						<AbsDimension x="187" y="-64" />
+					</Anchor>
+				</Anchors>
+				<Size>
+					<AbsDimension x="310" y="310" />
+				</Size>
+			</Texture>
+			
+
+			<!-- Label lbl_login-->
+
+			<Label name="lbl_login">
+				<Anchors>
+					<Anchor relativeTo="tx_background_helper">
+						<AbsDimension x="182" y="197" />
+					</Anchor>
+				</Anchors>
+				<Size>
+					<AbsDimension x="325" y="26" />
+				</Size>
+				<text>[ui.login.username]</text>
+				<css>[local.css]normal.css</css>
+			</Label>
+			
+			
+			<!-- Label lbl_pass-->
+			
+			<Label name="lbl_pass">
+				<Anchors>
+					<Anchor relativeTo="tx_background_helper">
+						<AbsDimension x="182" y="271" />
+					</Anchor>
+				</Anchors>
+				<Size>
+					<AbsDimension x="325" y="26" />
+				</Size>
+				<text>[ui.login.password]</text>
+				<css>[local.css]normal.css</css>
+			</Label>
+
+            <Texture name="tx_capsLockMsg" strata="LOW">
+                <Anchors>
+                    <Anchor relativeTo="tx_background_helper">
+                        <AbsDimension x="510" y="255" />
+                    </Anchor>
+                </Anchors>
+                <uri>[local.assets]textBubble</uri>
+                <!--<Size>-->
+                    <!--<AbsDimension x="250" y="55" />-->
+                <!--</Size>-->
+                <autoGrid>true</autoGrid>
+            </Texture>
+            <Label name="lbl_capsLock">
+                <autoResize>false</autoResize>
+                <fixedWidth>true</fixedWidth>
+                <Anchors>
+                    <Anchor relativeTo="tx_background_helper">
+                        <AbsDimension x="515" y="260" />
+                    </Anchor>
+                </Anchors>
+                <!--<Size>-->
+                    <!--<AbsDimension x="325" y="26" />-->
+                <!--</Size>-->
+                <text>[ui.login.capsLockWarning]</text>
+                <css>[local.css]normal.css</css>
+                <cssClass>dark</cssClass>
+            </Label>
+			
+			
+			
+			<StateContainer name="ctr_inputs">
+				<Common>
+					<Texture name="tx_inputLogin">
+						<Anchors>
+							<Anchor relativeTo="tx_background_helper">
+								<AbsDimension x="156" y="226" />
+							</Anchor>
+						</Anchors>
+						<Size>
+							<AbsDimension x="354" y="36" />
+						</Size>
+						<uri>[local.assets]login_tx_inputBg</uri>
+					</Texture>
+					<Texture name="tx_inputPass">
+						<Anchors>
+							<Anchor relativeTo="tx_background_helper">
+								<AbsDimension x="156" y="300" />
+							</Anchor>
+						</Anchors>
+						<Size>
+							<AbsDimension x="354" y="36" />
+						</Size>
+						<uri>[local.assets]login_tx_inputBg</uri>
+					</Texture>
+
+					<Input name="input_login">
+						<Anchors>
+							<Anchor relativeTo="tx_background_helper">
+								<AbsDimension x="167" y="231" />
+							</Anchor>
+						</Anchors>
+						<Size>
+							<AbsDimension x="340" y="30" />
+						</Size>
+						<css>[local.css]normal.css</css>	
+						<cssClass>dark</cssClass>
+					</Input>	
+					<Input name="input_pass">
+						<Anchors>
+							<Anchor relativeTo="tx_background_helper">
+								<AbsDimension x="167" y="305" />
+							</Anchor>
+						</Anchors>
+						<Size>
+							<AbsDimension x="340" y="30" />
+						</Size>
+						<css>[local.css]normal.css</css>
+						<cssClass>dark</cssClass>					
+						<password>true</password>
+					</Input>		
+				</Common>
+				
+				<State type="DISABLED">
+					<SetProperties target="tx_inputLogin">
+						<gotoAndStop>2</gotoAndStop>
+					</SetProperties>
+					<SetProperties target="tx_inputPass">
+						<gotoAndStop>2</gotoAndStop>
+					</SetProperties>
+				</State>
+				<State type="NORMAL">
+					<SetProperties target="tx_inputLogin">
+						<gotoAndStop>1</gotoAndStop>
+					</SetProperties>
+					<SetProperties target="tx_inputPass">
+						<gotoAndStop>1</gotoAndStop>
+					</SetProperties>
+				</State>
+			</StateContainer>
+
+
+			<!-- Label lbl_passForgotten-->
+
+			<Button name="btn_passForgotten">
+				<Common>
+					<Anchors>
+						<Anchor relativeTo="tx_background_helper">
+							<AbsDimension x="148" y="338" />
+						</Anchor>
+					</Anchors>
+					<Label name="lbl_passForgotten">
+						<Size>
+							<AbsDimension x="185" y="21" />
+						</Size>
+						<text>[ui.login.forgottenPassword]</text>
+						<css>[local.css]normal.css</css>
+						<cssClass>centerultrasmalldonotuse</cssClass>
+					</Label>
+					<Hooks>
+						<onRelease />
+					</Hooks>
+				</Common>
+				<State type="OVER">
+					<SetProperties target="lbl_passForgotten">
+						<cssClass>centeroverultrasmalldonotuse</cssClass>
+					</SetProperties>
+				</State>	
+			</Button>
+
+			<!-- Label lbl_createAccount-->
+
+			<Button name="btn_createAccount">
+				<Common>
+					<Anchors>
+						<Anchor relativeTo="tx_background_helper">
+							<AbsDimension x="333" y="338" />
+						</Anchor>
+					</Anchors>
+					<Label name="lbl_createAccount">
+						<Size>
+							<AbsDimension x="185" y="21" />
+						</Size>
+						<!--text>[ui.login.createAccount]</text-->
+						<text>[ui.login.createAccount]</text>
+						<css>[local.css]normal.css</css>
+						<cssClass>centerultrasmalldonotuse</cssClass>
+					</Label>
+					<Hooks>
+						<onRelease />
+					</Hooks>
+				</Common>
+				<State type="OVER">
+					<SetProperties target="lbl_createAccount">
+						<cssClass>centeroverultrasmalldonotuse</cssClass>
+					</SetProperties>
+				</State>	
+			</Button>
+
+			<!-- CheckBox btn_rememberLogin -->
+			
+			<labelCheckBox name="btn_rememberLogin">
+				<Anchors>
+					<Anchor relativeTo="tx_background_helper">
+						<AbsDimension x="158" y="378" />
+					</Anchor>
+				</Anchors>
+				<Size>
+					<AbsDimension x="14" y="14" />
+				</Size>
+				<labelWidth>342</labelWidth>
+				<labelHeight>21</labelHeight>
+				<labelPosX>20</labelPosX>
+				<uri>[local.assets]tx_light_checkbox</uri>
+				<text>[ui.login.rememberMe]</text>
+				<css>[local.css]normal.css</css>
+				<Hooks>
+					<onRelease />
+				</Hooks>
+			</labelCheckBox>
+			
+			
+			<labelCheckBox name="btn_autoSelectServer">
+				<Anchors>
+					<Anchor relativeTo="tx_background_helper">
+						<AbsDimension x="158" y="401" />
+					</Anchor>
+				</Anchors>
+				<Size>
+					<AbsDimension x="14" y="14" />
+				</Size>
+				<labelWidth>342</labelWidth>
+				<labelHeight>21</labelHeight>
+				<labelPosX>20</labelPosX>
+				<uri>[local.assets]tx_light_checkbox</uri>
+				<text>[ui.connection.manualServerSelection]</text>
+				<css>[local.css]normal.css</css>
+				<selected>true</selected>
+				<Hooks>
+					<onRelease />
+					<onRollOver />
+					<onRollOut />
+				</Hooks>
+			</labelCheckBox>
+			
+			
+			
+			
+			
+			
+			<!-- CADEAUX D'ABONNEMENT -->
+			
+			<Container name="ctr_gifts">
+			
+							
+				<!-- bg gifts -->
+				<Texture name="tx_giftsBg">
+					<Anchors>
+						<Anchor relativeTo="tx_background_helper" >
+							<AbsDimension x="0" y="608" />
+						</Anchor>
+					</Anchors>
+					<Size>
+						<AbsDimension x="665" y="152" />
+					</Size>
+					<uri>[local.assets]login_tx_giftsBackground</uri>
+				</Texture>
+
+				 <!-- Button btn_leftArrow-->
+
+ 				   <iconButton name="btn_leftArrow">
+  					   <Anchors>
+  					    <Anchor relativeTo="tx_background_helper">
+    					   <AbsDimension x="19" y="632" />
+    					  </Anchor>
+   					  </Anchors>
+  					   <Size>
+     					 <AbsDimension x="36" y="55" />
+    					 </Size>
+  					   <uri>[local.assets]btn_bigArrow_left</uri>
+  					   <Hooks>
+ 					     <onRelease />
+  					   </Hooks>
+   					 </iconButton>
+
+
+   				 <!-- Button btn_rightArrow-->
+
+   				 <iconButton name="btn_rightArrow">
+    					 <Anchors>
+     					 <Anchor relativeTo="tx_background_helper">
+    					   <AbsDimension x="609" y="632" />
+   					   </Anchor>
+   					  </Anchors>
+   					  <Size>
+  					    <AbsDimension x="36" y="55" />
+   					  </Size>
+    					 <uri>[local.assets]btn_bigArrow_right</uri>
+   					  <Hooks>
+    					  <onRelease />
+   					  </Hooks>
+    					</iconButton>
+
+				<Texture>
+					<Anchors><Anchor relativeTo="tx_background_helper"><AbsDimension x="96" y="616" /></Anchor></Anchors>
+   					<Size><AbsDimension x="88" y="88" /></Size>
+    				<uri>[local.assets]tx_slot</uri>
+				</Texture>
+				<Texture>
+					<Anchors><Anchor relativeTo="tx_background_helper"><AbsDimension x="225" y="616" /></Anchor></Anchors>
+   					<Size><AbsDimension x="88" y="88" /></Size>
+    				<uri>[local.assets]tx_slot</uri>
+				</Texture>
+				<Texture>
+					<Anchors><Anchor relativeTo="tx_background_helper"><AbsDimension x="353" y="616" /></Anchor></Anchors>
+   					<Size><AbsDimension x="88" y="88" /></Size>
+    				<uri>[local.assets]tx_slot</uri>
+				</Texture>
+				<Texture>
+					<Anchors><Anchor relativeTo="tx_background_helper"><AbsDimension x="483" y="616" /></Anchor></Anchors>
+   					<Size><AbsDimension x="88" y="88" /></Size>
+    				<uri>[local.assets]tx_slot</uri>
+				</Texture>
+				
+				<!-- Buttons btn_gift -->
+
+				<iconButton name="btn_gift0">
+					<Anchors><Anchor relativeTo="tx_background_helper"><AbsDimension x="140" y="660" /></Anchor></Anchors>
+					<Hooks><onRelease /><onRollOver /><onRollOut /></Hooks>
+				</iconButton>
+				<iconButton name="btn_gift1">
+					<Anchors><Anchor relativeTo="tx_background_helper"><AbsDimension x="269" y="660" /></Anchor></Anchors>
+					<Hooks><onRelease /><onRollOver /><onRollOut /></Hooks>
+				</iconButton>
+				<iconButton name="btn_gift2">
+					<Anchors><Anchor relativeTo="tx_background_helper"><AbsDimension x="397" y="660" /></Anchor></Anchors>
+					<Hooks><onRelease /><onRollOver /><onRollOut /></Hooks>
+				</iconButton>
+				<iconButton name="btn_gift3">
+					<Anchors><Anchor relativeTo="tx_background_helper"><AbsDimension x="527" y="660" /></Anchor></Anchors>
+					<Hooks><onRelease /><onRollOver /><onRollOut /></Hooks>
+				</iconButton>
+
+
+
+				<!-- Button btn_members-->
+
+				<greyButton label="[ui.connection.loggedInMembers]" name="btn_members" width="258" height="32">
+					<Anchors>
+						<Anchor relativeTo="tx_background_helper">
+							<AbsDimension x="70" y="720" />
+						</Anchor>
+					</Anchors>
+					<css>[local.css]button.css</css>
+					<Hooks>
+						<onRelease />
+					</Hooks>
+				</greyButton>
+				
+				<!-- Button btn_lowa-->
+
+				<greyButton label="[ui.connection.sponsoring]" name="btn_lowa" width="258" height="32">
+					<Anchors>
+						<Anchor relativeTo="tx_background_helper">
+							<AbsDimension x="334" y="720" />
+						</Anchor>
+					</Anchors>
+					<css>[local.css]button.css</css>
+					<Hooks>
+						<onRelease />
+					</Hooks>
+				</greyButton>
+			</Container>
+			
+			
+			
+								
+			<Container name="ctr_socket">
+				<Anchors>
+					<Anchor relativeTo="tx_background_helper">
+						<AbsDimension x="205" y="486" />
+					</Anchor>
+				</Anchors>		
+				<Texture name="tx_socketBg">
+					<Size>
+						<AbsDimension x="259" y="94" />
+					</Size>
+					<uri>[local.assets]login_tx_socketChoice</uri>
+				</Texture>
+
+				<!-- Label lbl_socket->
+
+				<Label name="lbl_socket">
+					<Anchors>
+						<Anchor>
+							<AbsDimension x="1" y="271" />
+						</Anchor>
+					</Anchors>
+					<Size>
+						<AbsDimension x="325" y="26" />
+					</Size>
+					<text>[ui.login.password]</text>
+					<css>[local.css]normal.css</css>
+				</Label-->
+
+				<!-- ComboBox cb_socket-->
+
+				<ComboBox name="cb_socket">
+					<Anchors>
+						<Anchor>
+							<AbsDimension x="17" y="54" />
+						</Anchor>
+					</Anchors>
+					<Size>
+						<AbsDimension x="225" y="25" />
+					</Size>
+					<autoSelect>false</autoSelect>
+					<buttonTexture>[local.assets]btn_combobox</buttonTexture>
+					<listTexture>[local.assets]tx_combobox</listTexture>
+					<rendererArgs>[local.css]normal.css,,,[colors.grid.over],[colors.grid.selected]</rendererArgs>
+					<scrollBarCss>[local.css]scrollBar.css</scrollBarCss>
+					<Hooks>
+						<onSelectItem />
+					</Hooks>
+				</ComboBox>		
+			</Container>
+			
+						
+			<!-- Bouton btn_play -->
+
+			<simpleButton label="[ui.common.play]" name="btn_play">
+				<Size>
+					<AbsDimension x="227" y="50" />
+				</Size>
+				<Anchors>
+					<Anchor relativeTo="tx_background_helper">
+						<AbsDimension x="219" y="450" />
+					</Anchor>
+				</Anchors>
+				<css>[local.css]button.css</css>
+				<Hooks>
+					<onRelease />
+				</Hooks>
+			</simpleButton>
+
+
+			<!-- Label lbl_options-->
+
+			<Button name="btn_options">
+				<Common>
+					<Anchors>
+						<Anchor relativeTo="tx_background_helper">
+							<AbsDimension x="203" y="501" />
+						</Anchor>
+					</Anchors>
+					<Label name="lbl_options">
+						<Size>
+							<AbsDimension x="260" y="21" />
+						</Size>
+						<text>[ui.common.options]</text>
+						<css>[local.css]normal.css</css>
+						<cssClass>center</cssClass>
+					</Label>
+					<Hooks>
+						<onRelease />
+					</Hooks>
+				</Common>
+				<State type="OVER">
+					<SetProperties target="lbl_options">
+						<cssClass>centerover</cssClass>
+					</SetProperties>
+				</State>	
+			</Button>
+			
+		</Container>
+
+		
+		
+				
+		<!-- Affichage des NEWS -->
+
+		<Container name="ctr_news">
+			<Anchors>
+				<Anchor relativeTo="wnd">
+					<AbsDimension x="559" y="242" />
+				</Anchor>
+			</Anchors>		
+			<Texture name="tx_newsBg">
+				<Size>
+					<AbsDimension x="360" y="200" />
+				</Size>
+				<uri>[local.assets]login_tx_newsBg</uri>
+			</Texture>
+
+			<Label name="lbl_newsTitle">
+				<Anchors>
+					<Anchor>
+						<AbsDimension x="53" y="13" />
+					</Anchor>
+				</Anchors>
+				<Size>
+					<AbsDimension x="180" y="26" />
+				</Size>
+				<text>[ui.login.news]</text>
+				<css>[local.css]normal.css</css>
+			</Label>
+			<TextArea name="texta_news">
+				<Anchors>
+					<Anchor>
+						<AbsDimension x="10" y="58" />
+					</Anchor>
+				</Anchors>
+				<Size>
+					<AbsDimension x="338" y="89" />
+				</Size>
+				<text>Bla bla bla bla bla bla bla bla bla  bla bla bla bla bla bla bla bla .</text>
+				<!--scrollCss>[local.css]scrollBar.css</scrollCss-->
+				<css>[local.css]normal.css</css>
+			</TextArea>
+			
+			
+			<!-- Label lbl_newsMore-->
+
+			<Button name="btn_newsMore">
+				<Common>
+					<Anchors>
+						<Anchor>
+							<AbsDimension x="11" y="154" />
+						</Anchor>
+					</Anchors>
+					<Label name="lbl_newsMore">
+						<Size>
+							<AbsDimension x="337" y="21" />
+						</Size>
+						<text>[ui.charcrea.more]</text>
+						<css>[local.css]normal.css</css>
+						<cssClass>center</cssClass>
+					</Label>
+					<Hooks>
+						<onRelease />
+					</Hooks>
+				</Common>
+				<State type="OVER">
+					<SetProperties target="lbl_newsMore">
+						<cssClass>centerover</cssClass>
+					</SetProperties>
+				</State>	
+			</Button>
+		</Container>
+
+
+			
+			
+		
+				
+		<!-- Texte Japan Expo ->
+		<Label name="lblJapan">
+			<Anchors>
+				<Anchor relativePoint="BOTTOM" point="BOTTOM">
+					<AbsDimension x="0" y="-30" />
+				</Anchor>
+			</Anchors>
+			<Size>
+				<AbsDimension x="400" y="20" />
+			</Size>
+			<css>[local.css]normal.css</css>
+			<text>[ui.login.copyright1]</text>
+		</Label>
+		<Label name="lblJapan2">
+			<Anchors>
+				<Anchor relativePoint="BOTTOM" point="BOTTOM">
+					<AbsDimension x="0" y="-10" />
+				</Anchor>
+			</Anchors>
+			<Size>
+				<AbsDimension x="600" y="20" />
+			</Size>
+			<css>[local.css]normal.css</css>
+			<text>[ui.login.copyright2]</text>
+		</Label-->
+		
+		
+		<!-- Background texture-->
+		<Texture strata="LOW" name="bg">
+			<Size>
+				<RelDimension x="1" y="1" />
+			</Size>
+			<uri>mod://Ankama_Connection/assets/login_background.jpg</uri>
+			<Hooks>
+				<onRelease />
+			</Hooks>
+		</Texture>
+		
+	</Container>
+	
+	<Shortcuts>
+		<validUi />
+	</Shortcuts>
+</Definition>
