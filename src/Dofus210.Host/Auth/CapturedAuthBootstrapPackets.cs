@@ -28,7 +28,7 @@ public static class CapturedAuthBootstrapPackets
         {
             return new AuthBootstrapProfileDefinition(
                 "CapturedAnkaline",
-                "Replay del bootstrap capturado: stream concatenado con RawDataMessage y paquetes auxiliares previos a Identification.",
+                "Replay del bootstrap capturado: stream concatenado con parche SWF custom (6253/StumpPatch) y paquetes auxiliares previos a Identification.",
                 CapturedAnkalinePackets.Value,
                 MarkBootstrapSent: true,
                 ReturnAfterSend: true);
@@ -114,7 +114,7 @@ public static class CapturedAuthBootstrapPackets
     {
         return messageId switch
         {
-            6253 => "CapturedRawData",
+            6253 => "CapturedStumpPatch",
             183 => "CapturedBasicPong",
             1 => "CapturedPacketId1",
             3 => "CapturedPacketId3",
@@ -155,9 +155,24 @@ public static class CapturedAuthBootstrapPackets
         var builder = new StringBuilder();
         var cwsOffset = FindAsciiSequence(payload, "CWS");
 
+        if (payload.Length >= 2)
+        {
+            var embeddedLength = ReadUInt16BigEndian(payload);
+            var embeddedPayloadBytes = payload.Length - 2;
+            builder.Append($" embeddedLengthBe={embeddedLength}");
+            builder.Append($" embeddedPayloadBytes={embeddedPayloadBytes}");
+            builder.Append($" embeddedLengthMatches={embeddedLength == embeddedPayloadBytes}");
+        }
+
         if (cwsOffset >= 0)
         {
             builder.Append($" embeddedCwsOffset={cwsOffset}");
+            builder.Append($" embeddedSwfType={(cwsOffset == 2 ? "cws-after-be-length" : "cws-nonstandard-offset")}");
+
+            if (cwsOffset == 2)
+            {
+                builder.Append(" embeddedSwfNameHint=StumpPatch");
+            }
         }
 
         if (TryReadVarInt(payload, out var prefixedLength, out var prefixBytes))
@@ -165,7 +180,7 @@ public static class CapturedAuthBootstrapPackets
             builder.Append($" rawVarIntPrefix={prefixedLength}");
             builder.Append($" rawVarIntBytes={prefixBytes}");
             builder.Append($" rawRemaining={payload.Length - prefixBytes}");
-            builder.Append($" rawLengthMatches={prefixedLength == payload.Length - prefixBytes}");
+            builder.Append($" rawVarIntInterpretationMatches={prefixedLength == payload.Length - prefixBytes}");
         }
         else
         {
@@ -173,6 +188,11 @@ public static class CapturedAuthBootstrapPackets
         }
 
         return builder.ToString();
+    }
+
+    private static ushort ReadUInt16BigEndian(byte[] payload)
+    {
+        return (ushort)((payload[0] << 8) | payload[1]);
     }
 
     private static int FindAsciiSequence(byte[] buffer, string asciiSequence)
